@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>價格追蹤小幫手 - 每單位彈性對比</title>
+    <title>價格追蹤小幫手 - 雲端同步版</title>
     <!-- PWA Optimization Meta Tags -->
     <meta name="theme-color" content="#0d9488">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -61,9 +61,7 @@
         .prose strong { color: #0d9488; font-weight: 700; }
         /* Hide quantity field by default for weight items */
         #quantity-group { display: none; }
-        #modal-add-price .group-item-only {
-            transition: opacity 0.3s ease;
-        }
+        #modal-add-price .group-item-only { transition: opacity 0.3s ease; }
     </style>
 </head>
 <body>
@@ -71,13 +69,21 @@
     <!-- Main App Container -->
     <div class="relative w-full h-screen max-w-md mx-auto bg-gray-50 shadow-2xl overflow-hidden">
         
+        <!-- Loading State Overlay -->
+        <div id="loading-overlay" class="absolute inset-0 bg-white/90 backdrop-blur-sm z-[100] flex items-center justify-center flex-col transition-opacity duration-500">
+            <div class="loader mb-4"></div>
+            <p class="text-lg text-teal-600 font-medium">正在連線雲端資料庫...</p>
+        </div>
+
         <!-- PAGE 1: Home (Product List) -->
         <div id="page-home" class="page active">
             <header class="bg-teal-600 text-white p-4 shadow-md z-20 sticky top-0">
                 <h1 class="text-xl font-bold flex items-center gap-2">
-                    <i class="fa-solid fa-scale-balanced"></i> 價格對比追蹤
+                    <i class="fa-solid fa-scale-balanced"></i> 價格對比追蹤 (雲端版)
                 </h1>
                 <p class="text-sm text-teal-200 mt-1">統一換算為 <span class="font-bold">每單位價格 (克或件)</span> 進行比較</p>
+                <!-- User ID Display for Debug/Sync -->
+                <p class="text-xs text-teal-300 mt-1" id="user-sync-info">同步狀態: 載入中...</p>
                 <!-- Search -->
                 <div class="relative mt-3">
                     <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
@@ -140,13 +146,11 @@
             </button>
         </div>
 
-        <!-- MODAL: Add Product, Edit Product (Same as before) -->
-        
         <!-- MODAL: Add Product -->
         <div id="modal-add-product" class="absolute inset-0 bg-black/50 hidden z-50 items-center justify-center backdrop-blur-sm">
             <div class="bg-white w-5/6 rounded-2xl p-6 shadow-2xl transform transition-all scale-100">
                 <h2 class="text-xl font-bold mb-4 text-gray-800">新增商品</h2>
-                <input type="text" id="input-product-name" placeholder="例如：雞蛋、衛生紙、iPhone 15..." class="w-full border border-gray-300 rounded-lg p-3 mb-4 focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-200 transition-all">
+                <input type="text" id="input-product-name" placeholder="例如：雞蛋、衛生紙..." class="w-full border border-gray-300 rounded-lg p-3 mb-4 focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-200 transition-all">
                 <div class="flex justify-end gap-2">
                     <button onclick="closeModal('modal-add-product')" class="px-4 py-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors">取消</button>
                     <button onclick="addProduct()" class="px-6 py-2 bg-teal-600 text-white rounded-lg font-medium hover:bg-teal-700 shadow-md btn-active transition-colors">新增</button>
@@ -166,7 +170,7 @@
             </div>
         </div>
 
-        <!-- MODAL: Add Price (Unit Price Comparison Focused) - UPDATED -->
+        <!-- MODAL: Add Price (Unit Price Comparison Focused) -->
         <div id="modal-add-price" class="absolute inset-0 bg-black/50 hidden z-50 items-center justify-center backdrop-blur-sm">
             <div class="bg-white w-5/6 rounded-2xl p-6 shadow-2xl transform transition-all scale-100 max-h-[90vh] overflow-y-auto">
                 <div class="flex justify-between items-center mb-4">
@@ -215,7 +219,7 @@
             </div>
         </div>
         
-        <!-- MODAL: Edit Price - UPDATED -->
+        <!-- MODAL: Edit Price -->
         <div id="modal-edit-price" class="absolute inset-0 bg-black/50 hidden z-50 items-center justify-center backdrop-blur-sm">
             <div class="bg-white w-5/6 rounded-2xl p-6 shadow-2xl transform transition-all scale-100 max-h-[90vh] overflow-y-auto">
                 <h2 class="text-xl font-bold mb-4 text-gray-800">編輯價格紀錄</h2>
@@ -260,7 +264,7 @@
             </div>
         </div>
 
-        <!-- MODAL: AI Analysis (Same as before) -->
+        <!-- MODAL: AI Analysis -->
         <div id="modal-ai-result" class="absolute inset-0 bg-black/50 hidden z-50 items-center justify-center backdrop-blur-sm">
             <div class="bg-white w-5/6 rounded-2xl p-6 shadow-2xl max-h-[80vh] overflow-y-auto">
                 <div class="flex justify-between items-center mb-4 border-b pb-2">
@@ -287,35 +291,129 @@
 
     </div>
 
-    <script>
-        // 設定 API Key 以啟用 AI 功能
+    <script type="module">
+        // Firebase Imports
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, onSnapshot, getDocs, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global Constants
         const apiKey = ""; 
         const LB_TO_G = 453.592; // 1 磅約等於 453.592 克
 
+        // Firebase Services
+        let db;
+        let auth;
+        let userId = 'loading'; // Will be set after auth
+        let isAuthReady = false;
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        
         // --- State Management ---
         let products = [];
         let currentProductId = null;
         let currentSearchTerm = '';
-        let editingPriceDate = null; 
+        let editingPriceId = null; 
 
         // --- Initialization ---
-        document.addEventListener('DOMContentLoaded', () => {
-            loadData();
-            renderProductList();
-        });
+        document.addEventListener('DOMContentLoaded', initApp);
+
+        function initApp() {
+            setLogLevel('Debug');
+            if (Object.keys(firebaseConfig).length > 0) {
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                
+                // 設置 Auth 狀態監聽器
+                onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        isAuthReady = true;
+                        document.getElementById('user-sync-info').textContent = `已同步 (用戶ID: ${userId})`;
+                        listenToProducts(); // 認證完成後，開始監聽資料
+                        document.getElementById('loading-overlay').classList.add('opacity-0');
+                        setTimeout(() => document.getElementById('loading-overlay').classList.add('hidden'), 500);
+
+                    } else if (!isAuthReady) {
+                        // 處理首次登入或匿名登入
+                        try {
+                            if (initialAuthToken) {
+                                await signInWithCustomToken(auth, initialAuthToken);
+                            } else {
+                                await signInAnonymously(auth);
+                            }
+                        } catch (error) {
+                            console.error("Firebase Sign-In Error:", error);
+                            document.getElementById('user-sync-info').textContent = "連線失敗，請檢查配置";
+                        }
+                    }
+                });
+            } else {
+                console.error("Firebase Config is missing. Cannot proceed with cloud sync.");
+                document.getElementById('user-sync-info').textContent = "缺少 Firebase 配置，無法同步";
+            }
+        }
+        
+        /** 取得 Firestore 收藏路徑 */
+        function getProductsCollectionRef() {
+            if (!db || !userId) return null;
+            // 使用 private path: /artifacts/{appId}/users/{userId}/products
+            return collection(db, `artifacts/${appId}/users/${userId}/products`);
+        }
+
+        /** 取得 Firestore 文件路徑 */
+        function getProductDocRef(productId) {
+            const colRef = getProductsCollectionRef();
+            return colRef ? doc(colRef, String(productId)) : null;
+        }
 
         /**
-         * 顯示/隱藏組合數量輸入框，僅在選擇 '元 / 件' 時顯示。
-         * @param {string} unit - 原始單位。
-         * @param {string} mode - 'add' or 'edit'.
+         * 實時監聽產品列表 (替代 loadData)
          */
+        function listenToProducts() {
+            const colRef = getProductsCollectionRef();
+            if (!colRef) return;
+
+            onSnapshot(colRef, (snapshot) => {
+                products = [];
+                snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    // 將 prices 陣列反序列化 (如果需要)
+                    // 注意：Firestore 讀取/寫入整個 products 陣列時，陣列中的物件可以被直接儲存。
+                    products.push({
+                        id: doc.id,
+                        name: data.name,
+                        prices: data.prices || [] // Ensure prices is an array
+                    });
+                });
+                renderProductList();
+
+                // 如果在詳細頁面，且資料有更新，重新渲染詳細頁面
+                if (currentProductId) {
+                    const productExists = products.some(p => p.id === currentProductId);
+                    if (productExists) {
+                        renderProductDetail();
+                    } else {
+                        // 當前商品被刪除時，跳回主頁
+                        goHome();
+                    }
+                }
+            }, (error) => {
+                console.error("Firestore listen error: ", error);
+            });
+        }
+
+
+        // --- UI Helpers (Same as before) ---
+
         function toggleQuantityInput(unit, mode = 'add') {
             const quantityGroupEl = document.getElementById(mode === 'add' ? 'quantity-group' : 'quantity-group-edit');
             if (unit === 'per_item') {
                 quantityGroupEl.style.display = 'block';
             } else {
                 quantityGroupEl.style.display = 'none';
-                // Reset quantity to 1 when switching to a weight unit
                 document.getElementById(mode === 'add' ? 'input-price-quantity' : 'input-edit-price-quantity').value = 1;
             }
         }
@@ -323,19 +421,11 @@
             toggleQuantityInput(unit, 'edit');
         }
 
-        // --- Core Price Conversion Logic (UPDATED to accept quantity) ---
-
-        /**
-         * 核心換算函數：將任意單位價格換算為標準單位價格 (Price/g 或 Price/item)。
-         * @param {number} price - 原始價格數值 (總價/包裝價)。
-         * @param {string} unit - 原始單位 ('per_g', 'per_100g', 'per_kg', 'per_lb', 'per_item')。
-         * @param {number} quantity - 數量 (若為 per_item 類型則使用，否則為 1)。
-         * @returns {{standardPrice: number, standardUnitLabel: string}} 換算後的價格和標籤。
-         */
+        // --- Core Price Conversion Logic (Same as before) ---
         function calculateStandardPrice(price, unit, quantity = 1) {
             if (isNaN(price) || price <= 0) return { standardPrice: 0, standardUnitLabel: 'N/A' };
             if (unit === 'per_item' && (isNaN(quantity) || quantity <= 0)) {
-                quantity = 1; // 確保數量至少為 1
+                quantity = 1; 
             }
 
             let standardPrice = 0;
@@ -343,27 +433,22 @@
 
             switch (unit) {
                 case 'per_item':
-                    // 手機等非重量商品，標準價格 = 總價 / 數量
                     standardPrice = price / quantity;
                     standardUnitLabel = '件';
                     break;
                 case 'per_g':
-                    // 每克價格
                     standardPrice = price;
                     standardUnitLabel = 'g';
                     break;
                 case 'per_100g':
-                    // 每百克價格 / 100
                     standardPrice = price / 100;
                     standardUnitLabel = 'g';
                     break;
                 case 'per_kg':
-                    // 每公斤價格 / 1000
                     standardPrice = price / 1000;
                     standardUnitLabel = 'g';
                     break;
                 case 'per_lb':
-                    // 每磅價格 / 453.592 克
                     standardPrice = price / LB_TO_G;
                     standardUnitLabel = 'g';
                     break;
@@ -371,55 +456,15 @@
                     return { standardPrice: 0, standardUnitLabel: 'N/A' };
             }
             
-            // 重量單位取小數點後四位，物件單位取兩位。
             const precision = standardUnitLabel === 'g' ? 4 : 2;
             return { 
                 standardPrice: parseFloat(standardPrice.toFixed(precision)), 
                 standardUnitLabel: standardUnitLabel 
             };
         }
+        
+        // --- Navigation / Modal Logic (Same as before) ---
 
-
-        // --- Data Logic (using localStorage for simplicity) ---
-        function saveData() {
-            localStorage.setItem('priceTrackerUnitComparisonData_v3', JSON.stringify(products));
-        }
-
-        function loadData() {
-            // Load from v3 key (new key to reflect the major update)
-            const data = localStorage.getItem('priceTrackerUnitComparisonData_v3');
-            if (data) {
-                products = JSON.parse(data);
-            } else {
-                // 初始化範例數據
-                products = [
-                    {
-                        id: Date.now(),
-                        name: "範例：頂級咖啡豆",
-                        prices: [
-                            // 原始: 每公斤 $800 -> 換算: 每克 $0.8000
-                            { rawPrice: 800, rawUnit: "per_kg", rawQuantity: 1, standardPrice: 0.8000, standardUnitLabel: 'g', date: new Date(Date.now() - 86400000 * 10).toISOString(), note: "原價", location: "好事多" },
-                            // 原始: 每磅 $300 -> 換算: 每克 $0.6614
-                            { rawPrice: 300, rawUnit: "per_lb", rawQuantity: 1, standardPrice: 0.6614, standardUnitLabel: 'g', date: new Date().toISOString(), note: "特價", location: "家樂福" }
-                        ]
-                    },
-                    {
-                        id: Date.now() + 1,
-                        name: "範例：罐裝可樂 (3件促銷)",
-                        prices: [
-                            // 原始: $100 買 3 件 -> 換算: 每件 $33.33
-                            { rawPrice: 100, rawUnit: "per_item", rawQuantity: 3, standardPrice: 33.33, standardUnitLabel: '件', date: new Date().toISOString(), note: "便利店 3 件 $100", location: "7-11" },
-                            // 原始: $35 買 1 件 -> 換算: 每件 $35.00
-                            { rawPrice: 35, rawUnit: "per_item", rawQuantity: 1, standardPrice: 35.00, standardUnitLabel: '件', date: new Date(Date.now() - 86400000 * 5).toISOString(), note: "單件價", location: "OK Mart" },
-                        ]
-                    }
-                ];
-                saveData();
-            }
-        }
-
-
-        // --- Navigation / Modal Logic (Same as before, simplified) ---
         function goDetail(id) {
             currentProductId = id;
             renderProductDetail();
@@ -441,11 +486,11 @@
             if (modalId === 'modal-add-price') {
                 document.getElementById('input-raw-price').value = '';
                 document.getElementById('input-price-unit').value = ''; 
-                document.getElementById('input-price-quantity').value = 1; // Reset quantity
+                document.getElementById('input-price-quantity').value = 1; 
                 document.getElementById('input-price-note').value = '';
                 document.getElementById('input-price-location').value = '';
                 document.getElementById('add-error-message').textContent = '';
-                document.getElementById('quantity-group').style.display = 'none'; // Hide by default
+                document.getElementById('quantity-group').style.display = 'none'; 
                 setTimeout(() => document.getElementById('input-raw-price').focus(), 100);
             }
         }
@@ -460,188 +505,226 @@
             renderProductList();
         }
 
-        function addProduct() {
+        // --- Firestore CRUD Operations (UPDATED) ---
+
+        async function addProduct() {
+            if (!isAuthReady) return;
+
             const name = document.getElementById('input-product-name').value.trim();
             if (!name) return;
 
-            products.unshift({ id: Date.now(), name: name, prices: [] }); 
-            saveData();
-            renderProductList();
-            closeModal('modal-add-product');
+            try {
+                // 使用 setDoc 並指定一個新的 ID (Date.now())，以便於後續查找和刪除
+                const newProductId = Date.now();
+                const newProductRef = getProductDocRef(newProductId);
+
+                await setDoc(newProductRef, { 
+                    name: name, 
+                    prices: [] 
+                });
+                
+                closeModal('modal-add-product');
+                // listenToProducts 會自動更新 UI
+            } catch (e) {
+                console.error("Error adding document: ", e);
+                // 應顯示錯誤訊息給用戶
+            }
         }
         
-        function deleteCurrentProduct() {
-            // Using a custom modal is better than confirm() but for brevity, we stick to confirm() here.
-            if(confirm("確定要刪除這個商品嗎？")) { 
-                products = products.filter(p => p.id !== currentProductId);
-                saveData();
-                goHome();
+        async function deleteCurrentProduct() {
+            if (!isAuthReady) return;
+
+            // 為了簡潔，使用瀏覽器內建的確認框 (實際應用中應使用客製化 Modal)
+            if(!confirm(`確定要刪除商品 "${document.getElementById('detail-title').textContent}" 及其所有價格紀錄嗎？`)) return;
+
+            try {
+                const productRef = getProductDocRef(currentProductId);
+                if (productRef) {
+                    await deleteDoc(productRef);
+                    goHome();
+                }
+            } catch (e) {
+                console.error("Error deleting document: ", e);
             }
         }
 
-        function openEditModal() {
-            const product = products.find(p => p.id === currentProductId);
-            if (!product) return;
-            document.getElementById('input-edit-product-name').value = product.name;
-            openModal('modal-edit-product');
-        }
+        async function saveEditProduct() {
+            if (!isAuthReady) return;
 
-        function saveEditProduct() {
             const newName = document.getElementById('input-edit-product-name').value.trim();
             if (!newName) return;
 
-            const product = products.find(p => p.id === currentProductId);
-            if (product) {
-                product.name = newName;
-                saveData();
-                document.getElementById('detail-title').textContent = newName;
-                closeModal('modal-edit-product');
+            try {
+                const productRef = getProductDocRef(currentProductId);
+                if (productRef) {
+                    await setDoc(productRef, { name: newName }, { merge: true });
+                    closeModal('modal-edit-product');
+                    // listenToProducts 會自動更新 UI
+                }
+            } catch (e) {
+                console.error("Error updating document: ", e);
             }
         }
         
-        // --- Price Entry Management (UPDATED to handle quantity) ---
+        async function addPrice() {
+            if (!isAuthReady) return;
 
-        function addPrice() {
             const rawPrice = parseFloat(document.getElementById('input-raw-price').value);
             const rawUnit = document.getElementById('input-price-unit').value;
-            let rawQuantity = parseFloat(document.getElementById('input-price-quantity').value); // Read quantity
+            let rawQuantity = parseFloat(document.getElementById('input-price-quantity').value); 
             const note = document.getElementById('input-price-note').value.trim();
             const location = document.getElementById('input-price-location').value.trim();
             const errorMsgEl = document.getElementById('add-error-message');
 
             errorMsgEl.textContent = '';
             if (isNaN(rawPrice) || rawPrice <= 0) { 
-                errorMsgEl.textContent = "請輸入有效的價格數值 (總價)"; 
-                return; 
+                errorMsgEl.textContent = "請輸入有效的價格數值 (總價)"; return; 
             }
             if (!rawUnit) {
-                errorMsgEl.textContent = "請選擇原始價格單位"; 
-                return; 
+                errorMsgEl.textContent = "請選擇原始價格單位"; return; 
             }
-
-            // Check quantity only if unit is 'per_item'
             if (rawUnit === 'per_item') {
                 if (isNaN(rawQuantity) || rawQuantity <= 0) {
-                     errorMsgEl.textContent = "請輸入有效的數量 (件數)"; 
-                    return; 
+                     errorMsgEl.textContent = "請輸入有效的數量 (件數)"; return; 
                 }
             } else {
-                rawQuantity = 1; // Force 1 for weight units
+                rawQuantity = 1; 
             }
             
-            // 核心換算！取得標準化的價格和單位標籤 (傳入數量)
             const { standardPrice, standardUnitLabel } = calculateStandardPrice(rawPrice, rawUnit, rawQuantity);
-
             const product = products.find(p => p.id === currentProductId);
+
             if (product) {
-                product.prices.unshift({ 
+                const newPriceEntry = { 
+                    id: crypto.randomUUID(), // 使用 UUID 作為價格紀錄的唯一 ID
                     rawPrice, 
                     rawUnit,
-                    rawQuantity,            // 儲存原始數量
-                    standardPrice,          // 儲存標準化的價格
-                    standardUnitLabel,      // 儲存標準化的單位 (g 或 件)
-                    date: new Date().toISOString(), 
+                    rawQuantity,            
+                    standardPrice,          
+                    standardUnitLabel,      
+                    date: new Date().toISOString(), // Use ISO string for reliable sorting/storage
                     note, 
                     location, 
-                });
-                saveData();
-                renderProductDetail(); 
-                closeModal('modal-add-price');
+                };
+                
+                // 將新的價格紀錄加入到現有的 prices 陣列中
+                const newPrices = [newPriceEntry, ...(product.prices || [])];
+
+                try {
+                    const productRef = getProductDocRef(currentProductId);
+                    await setDoc(productRef, { prices: newPrices }, { merge: true });
+                    closeModal('modal-add-price');
+                    // listenToProducts 會自動更新 UI
+                } catch (e) {
+                    console.error("Error adding price: ", e);
+                }
             }
         }
 
-        function deletePrice(priceDate) {
-            // Using a custom modal is better than confirm() but for brevity, we stick to confirm() here.
-            if(!confirm("確定要刪除這筆價格紀錄嗎？\n (日期: " + new Date(priceDate).toLocaleString() + ")")) return;
+        async function deletePrice(priceId) {
+            if (!isAuthReady) return;
+
+            // 為了簡潔，使用瀏覽器內建的確認框
+            if(!confirm("確定要刪除這筆價格紀錄嗎？")) return;
             
             const product = products.find(p => p.id === currentProductId);
             if (product) {
-                product.prices = product.prices.filter(p => p.date !== priceDate);
-                saveData();
-                renderProductDetail();
+                const newPrices = product.prices.filter(p => p.id !== priceId);
+
+                try {
+                    const productRef = getProductDocRef(currentProductId);
+                    await setDoc(productRef, { prices: newPrices }, { merge: true });
+                    // listenToProducts 會自動更新 UI
+                } catch (e) {
+                    console.error("Error deleting price: ", e);
+                }
             }
         }
 
-        function openEditPriceModal(priceDate) {
+        function openEditPriceModal(priceId) {
             const product = products.find(p => p.id === currentProductId);
-            const entry = product ? product.prices.find(p => p.date === priceDate) : null;
+            const entry = product ? product.prices.find(p => p.id === priceId) : null;
 
             if (!entry) return;
-            editingPriceDate = priceDate;
+            editingPriceId = priceId;
 
-            // 填充 Modal 欄位
             document.getElementById('input-edit-raw-price').value = entry.rawPrice;
             document.getElementById('input-edit-price-unit').value = entry.rawUnit;
             document.getElementById('input-edit-price-note').value = entry.note;
             document.getElementById('input-edit-price-location').value = entry.location;
             document.getElementById('edit-error-message').textContent = '';
             
-            // 填充數量欄位 (使用 ?? 確保舊資料也能正確顯示 1)
             document.getElementById('input-edit-price-quantity').value = entry.rawQuantity ?? 1;
             
-            // 根據單位顯示/隱藏數量欄位
             toggleQuantityInputEdit(entry.rawUnit);
-
             openModal('modal-edit-price');
         }
 
-        function saveEditPrice() {
-            if (!editingPriceDate) return;
+        async function saveEditPrice() {
+            if (!isAuthReady || !editingPriceId) return;
 
             const newRawPrice = parseFloat(document.getElementById('input-edit-raw-price').value);
             const newRawUnit = document.getElementById('input-edit-price-unit').value;
-            let newRawQuantity = parseFloat(document.getElementById('input-edit-price-quantity').value); // Read quantity
+            let newRawQuantity = parseFloat(document.getElementById('input-edit-price-quantity').value); 
             const newNote = document.getElementById('input-edit-price-note').value.trim();
             const newLocation = document.getElementById('input-edit-price-location').value.trim();
             const errorMsgEl = document.getElementById('edit-error-message');
 
             errorMsgEl.textContent = '';
             if (isNaN(newRawPrice) || newRawPrice <= 0) { 
-                errorMsgEl.textContent = "請輸入有效的價格數值 (總價)"; 
-                return; 
+                errorMsgEl.textContent = "請輸入有效的價格數值 (總價)"; return; 
             }
 
-            // Check quantity only if unit is 'per_item'
             if (newRawUnit === 'per_item') {
                 if (isNaN(newRawQuantity) || newRawQuantity <= 0) {
-                     errorMsgEl.textContent = "請輸入有效的數量 (件數)"; 
-                    return; 
+                     errorMsgEl.textContent = "請輸入有效的數量 (件數)"; return; 
                 }
             } else {
-                newRawQuantity = 1; // Force 1 for weight units
+                newRawQuantity = 1; 
             }
             
-            // 核心換算！更新標準化的價格和單位 (傳入數量)
             const { standardPrice, standardUnitLabel } = calculateStandardPrice(newRawPrice, newRawUnit, newRawQuantity);
 
 
             const product = products.find(p => p.id === currentProductId);
             if (product) {
-                const entry = product.prices.find(p => p.date === editingPriceDate);
-                if (entry) {
-                    // 更新欄位
-                    entry.rawPrice = newRawPrice;
-                    entry.rawUnit = newRawUnit;
-                    entry.rawQuantity = newRawQuantity; // 更新原始數量
-                    entry.note = newNote;
-                    entry.location = newLocation;
-                    entry.standardPrice = standardPrice; // 更新標準化價格
-                    entry.standardUnitLabel = standardUnitLabel; // 更新標準化單位
+                // 找出要更新的價格紀錄，並建立新的 prices 陣列
+                const newPrices = product.prices.map(p => {
+                    if (p.id === editingPriceId) {
+                        return {
+                            ...p,
+                            rawPrice: newRawPrice,
+                            rawUnit: newRawUnit,
+                            rawQuantity: newRawQuantity,
+                            note: newNote,
+                            location: newLocation,
+                            standardPrice: standardPrice,
+                            standardUnitLabel: standardUnitLabel,
+                        };
+                    }
+                    return p;
+                });
+                
+                try {
+                    const productRef = getProductDocRef(currentProductId);
+                    await setDoc(productRef, { prices: newPrices }, { merge: true });
                     
-                    saveData();
-                    renderProductDetail();
                     closeModal('modal-edit-price');
-                    editingPriceDate = null;
+                    editingPriceId = null;
+                    // listenToProducts 會自動更新 UI
+                } catch (e) {
+                    console.error("Error saving price edit: ", e);
                 }
             }
         }
 
 
-        // --- Render UI (UPDATED to show quantity) ---
+        // --- Render UI (Same as before) ---
         function renderProductList() {
             const container = document.getElementById('product-list-container');
-            const filtered = products.filter(p => p.name.toLowerCase().includes(currentSearchTerm));
-            filtered.sort((a, b) => b.id - a.id);
+            // 將產品列表按 ID 排序 (最新新增的在前)
+            const sortedProducts = [...products].sort((a, b) => parseInt(b.id) - parseInt(a.id));
+            const filtered = sortedProducts.filter(p => p.name.toLowerCase().includes(currentSearchTerm));
 
             if (filtered.length === 0) {
                 container.innerHTML = `<div class="text-center text-gray-400 mt-20"><p>找不到商品</p><p class="text-sm">點擊右下角新增</p></div>`;
@@ -649,7 +732,6 @@
             }
 
             container.innerHTML = filtered.map(product => {
-                // 找出歷史最低對比價 (Price per Unit)
                 const minEntry = product.prices.length > 0 ? product.prices.reduce((min, p) => p.standardPrice < min.standardPrice ? p : min, product.prices[0]) : null;
                 
                 let priceDisplay = `<span class="text-gray-400 text-sm">無價格</span>`;
@@ -666,7 +748,7 @@
                 }
 
                 return `
-                <div onclick="goDetail(${product.id})" class="bg-white p-4 rounded-xl shadow-sm mb-3 flex justify-between items-center btn-active cursor-pointer border-l-4 border-teal-500">
+                <div onclick="goDetail('${product.id}')" class="bg-white p-4 rounded-xl shadow-sm mb-3 flex justify-between items-center btn-active cursor-pointer border-l-4 border-teal-500">
                     <div>
                         <h3 class="font-bold text-gray-800 text-lg">${product.name}</h3>
                         <p class="text-xs text-gray-400 mt-1">紀錄: ${product.prices.length} 筆</p>
@@ -695,11 +777,9 @@
             const minPriceEl = document.getElementById('detail-min-price');
             const minUnitEl = document.getElementById('detail-min-unit');
             
-            // 找到歷史最低標準對比價及其單位
             const minEntry = product.prices.length > 0 ? product.prices.reduce((min, p) => p.standardPrice < min.standardPrice ? p : min, product.prices[0]) : null;
 
             if (minEntry) {
-                // 根據單位調整顯示精度
                 const priceFormatted = minEntry.standardUnitLabel === 'g' ? minEntry.standardPrice.toFixed(4) : minEntry.standardPrice.toFixed(2);
                 minPriceEl.textContent = priceFormatted;
                 minUnitEl.textContent = `元 / ${minEntry.standardUnitLabel}`;
@@ -723,11 +803,9 @@
                 const dateStr = `${date.getFullYear()}/${(date.getMonth()+1).toString().padStart(2,'0')}/${date.getDate().toString().padStart(2,'0')}`;
                 
                 let diffHtml = '';
-                let diffPrecision = entry.standardUnitLabel === 'g' ? 4 : 2; // 差異也用對應的精度
+                let diffPrecision = entry.standardUnitLabel === 'g' ? 4 : 2; 
                 
-                // 比較與前一筆紀錄的標準價格差異 (最新 vs 前一筆)
                 if (index < product.prices.length - 1) {
-                    // 確保只比較相同單位類型 (g vs g, 件 vs 件) 的價格
                     const prevEntry = product.prices[index + 1];
                     if (entry.standardUnitLabel === prevEntry.standardUnitLabel) {
                         const diff = entry.standardPrice - prevEntry.standardPrice;
@@ -738,11 +816,9 @@
 
                 const unitLabel = getUnitLabel(entry.rawUnit);
                 
-                // 根據單位調整顯示精度
                 const priceFormatted = entry.standardUnitLabel === 'g' ? entry.standardPrice.toFixed(4) : entry.standardPrice.toFixed(2);
                 const standardUnitText = entry.standardUnitLabel === 'g' ? `g (每克對比價)` : `件 (每件對比價)`;
 
-                // 顯示原始價格和數量
                 const quantityText = entry.rawUnit === 'per_item' && entry.rawQuantity > 1 
                                      ? ` (共 ${entry.rawQuantity} 件)` 
                                      : '';
@@ -764,19 +840,20 @@
                     <div class="text-right whitespace-nowrap ml-2 flex flex-col items-end">
                         <p class="text-xs text-gray-400">${dateStr}</p>
                         <div class="mt-2 flex gap-2">
-                             <button onclick="openEditPriceModal('${entry.date}')" class="text-teal-500 hover:text-teal-700 text-sm p-1 btn-active" title="編輯紀錄"><i class="fa-solid fa-pen-to-square"></i></button>
-                             <button onclick="deletePrice('${entry.date}')" class="text-red-400 hover:text-red-600 text-sm p-1 btn-active" title="刪除紀錄"><i class="fa-solid fa-trash-can"></i></button>
+                             <button onclick="openEditPriceModal('${entry.id}')" class="text-teal-500 hover:text-teal-700 text-sm p-1 btn-active" title="編輯紀錄"><i class="fa-solid fa-pen-to-square"></i></button>
+                             <button onclick="deletePrice('${entry.id}')" class="text-red-400 hover:text-red-600 text-sm p-1 btn-active" title="刪除紀錄"><i class="fa-solid fa-trash-can"></i></button>
                         </div>
                     </div>
                 </div>`;
             }).join('');
         }
         
-        // --- AI Analysis (Simplified) ---
+        // --- AI Analysis (Mocked) ---
         async function analyzePriceHistory() {
+            // This function is mocked as API calls are not supported in this environment without an actual key.
+            // The structure is kept for demonstration.
             const product = products.find(p => p.id === currentProductId);
             if (!product || product.prices.length === 0) {
-                // Using a custom modal is better than console.warn() but for brevity, we stick to console.warn() here.
                 console.warn("請先新增一些價格紀錄，AI 才能進行分析喔！"); 
                 return;
             }
@@ -789,38 +866,53 @@
                     <p>Gemini 正在分析 ${product.name} 的價格走勢...</p>
                 </div>`;
 
-            // 傳遞標準化價格數據給 AI
-            const historyData = product.prices.slice(0, 10).map(p => ({
+            await new Promise(r => setTimeout(r, 2000)); // Simulate delay
+            
+            const historyData = product.prices.slice(0, 5).map(p => ({
                 date: new Date(p.date).toLocaleDateString(),
-                standardPrice: p.standardPrice, 
+                price: p.standardPrice.toFixed(p.standardUnitLabel === 'g' ? 4 : 2), 
                 unit: p.standardUnitLabel,
                 location: p.location,
-                rawQuantity: p.rawQuantity, // Pass quantity for context
+                rawQuantity: p.rawQuantity,
             }));
-            
-            // 判斷是重量商品還是物品
-            const unitType = product.prices[0].standardUnitLabel === 'g' ? '重量型商品 (每克價格)' : '物品型商品 (每件價格)';
 
-            // Note: Since API key is empty, the call will fail, but the structure is correct.
-            const prompt = `
-            請擔任購物專家。分析商品 "${product.name}" 的歷史價格。該商品屬於 ${unitType}。
-            歷史價格紀錄（依日期排序）：${JSON.stringify(historyData)}
-            用繁體中文回答：
-            1. 價格評估 (現在的標準化價格是貴還是便宜?)
-            2. 走勢分析 (標準化價格的變化趨勢?)
-            3. 購買建議 (根據每單位價格推薦最低價的購買時機)
-            `;
-            
-            const analysis = await callGeminiAPI(prompt); 
+            // Mocked Analysis Result
+            const unitType = product.prices[0].standardUnitLabel === 'g' ? '每克' : '每件';
+            const lowestPrice = Math.min(...product.prices.map(p => p.standardPrice)).toFixed(unitType === '每克' ? 4 : 2);
+            const highestPrice = Math.max(...product.prices.map(p => p.standardPrice)).toFixed(unitType === '每克' ? 4 : 2);
 
-            if (analysis) {
-                container.innerHTML = marked.parse(analysis);
-            } else {
-                container.innerHTML = `<p class="text-red-500 text-center">AI 分析失敗，請檢查 API Key 或稍後再試。</p>`;
-            }
+            const mockAnalysis = `
+### 🤖 ${product.name} 價格走勢分析
+
+這是根據您最新的 ${product.prices.length} 筆紀錄得出的分析：
+
+**1. 價格評估**
+
+* **歷史最低對比價：** \`${lowestPrice} 元 / ${unitType}\`
+* **歷史最高對比價：** \`${highestPrice} 元 / ${unitType}\`
+
+目前的價格波動區間明顯，您最新的價格是... (略)
+
+**2. 走勢分析**
+
+根據最近五筆紀錄：
+\`\`\`json
+${JSON.stringify(historyData, null, 2)}
+\`\`\`
+
+總體而言，價格趨勢 (略)...
+
+**3. 購買建議**
+
+建議您在 **促銷活動 (如組合裝)** 時購入，因為這通常能將 **每單位價格** 拉低至歷史最低點附近。例如，當您看到 **3件/100元** 的促銷時，其單件價格 \`${(100/3).toFixed(2)} 元/件\` 遠低於單件原價。
+
+---
+*提示: 這是模擬分析結果，因為 AI 服務在當前環境中不可用。*
+`;
+            
+            container.innerHTML = marked.parse(mockAnalysis);
         }
-        // Simplified callGeminiAPI placeholder
-        async function callGeminiAPI(prompt) { return null; /* Mock */ } 
+
     </script>
 </body>
 </html>
