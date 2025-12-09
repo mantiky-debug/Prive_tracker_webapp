@@ -71,8 +71,8 @@
         
         <!-- Loading State Overlay -->
         <div id="loading-overlay" class="absolute inset-0 bg-white/90 backdrop-blur-sm z-[100] flex items-center justify-center flex-col transition-opacity duration-500">
-            <div class="loader mb-4"></div>
-            <p class="text-lg text-teal-600 font-medium">正在連線雲端資料庫...</p>
+            <div id="loading-spinner" class="loader mb-4"></div>
+            <p class="text-lg text-teal-600 font-medium" id="loading-text">正在連線雲端資料庫...</p>
         </div>
 
         <!-- PAGE 1: Home (Product List) -->
@@ -292,23 +292,42 @@
     </div>
 
     <script type="module">
-        // Firebase Imports
+        // Firebase Imports (SDK已包含在此)
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, onSnapshot, getDocs, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, deleteDoc, collection, onSnapshot, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Global Constants
-        const apiKey = ""; 
         const LB_TO_G = 453.592; // 1 磅約等於 453.592 克
 
+        // --- 解決連線問題的核心代碼 ---
+        
+        // 1. 手動定義您的 Firebase 配置 (來自您提供的截圖)
+        const USER_FIREBASE_CONFIG = {
+            apiKey: "AIzaSyAt4beTHAZG7TaWTz8RPgPdk-zpwg_s9P1",
+            authDomain: "coffee-spark-ai-barista-3a436.firebaseapp.com",
+            projectId: "coffee-spark-ai-barista-3a436",
+            storageBucket: "coffee-spark-ai-barista-3a436.firebasestorage.app",
+            messagingSenderId: "367965659562",
+            appId: "1:367965659562:web:6678c57dd8871f1fed8bd3"
+        };
+        
+        // 2. 優先使用系統提供的配置，如果沒有，則使用您手動提供的配置
+        const environmentConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const firebaseConfig = Object.keys(environmentConfig).length > 0 ? environmentConfig : USER_FIREBASE_CONFIG;
+        
+        // 其他必要的全域變數
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        
+        // ------------------------------------
+        
         // Firebase Services
         let db;
         let auth;
         let userId = 'loading'; // Will be set after auth
         let isAuthReady = false;
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        
         
         // --- State Management ---
         let products = [];
@@ -319,41 +338,79 @@
         // --- Initialization ---
         document.addEventListener('DOMContentLoaded', initApp);
 
+        function dismissLoader() {
+            const overlay = document.getElementById('loading-overlay');
+            if (overlay) {
+                overlay.classList.add('opacity-0');
+                setTimeout(() => overlay.classList.add('hidden'), 500);
+            }
+        }
+
+        function setLoaderStatus(text, isError = false) {
+             document.getElementById('loading-text').textContent = text;
+             const spinner = document.getElementById('loading-spinner');
+             if (isError) {
+                spinner.innerHTML = '<i class="fa-solid fa-triangle-exclamation text-red-500 text-2xl"></i>';
+                spinner.classList.remove('loader');
+             } else {
+                spinner.classList.add('loader');
+                spinner.innerHTML = '';
+             }
+        }
+
         function initApp() {
             setLogLevel('Debug');
-            if (Object.keys(firebaseConfig).length > 0) {
+            
+            // 檢查 Firebase 配置是否存在
+            if (Object.keys(firebaseConfig).length === 0) {
+                console.error("Firebase Config is missing. Cannot proceed with cloud sync.");
+                setLoaderStatus("錯誤：缺少 Firebase 配置，無法同步", true);
+                document.getElementById('user-sync-info').textContent = "同步狀態: 缺少配置";
+                // 立即移除載入畫面，顯示錯誤
+                setTimeout(dismissLoader, 3000); 
+                return; 
+            }
+            
+            // 如果配置存在，開始初始化 Firebase 服務
+            try {
                 const app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
-                
-                // 設置 Auth 狀態監聽器
-                onAuthStateChanged(auth, async (user) => {
-                    if (user) {
-                        userId = user.uid;
-                        isAuthReady = true;
-                        document.getElementById('user-sync-info').textContent = `已同步 (用戶ID: ${userId})`;
-                        listenToProducts(); // 認證完成後，開始監聽資料
-                        document.getElementById('loading-overlay').classList.add('opacity-0');
-                        setTimeout(() => document.getElementById('loading-overlay').classList.add('hidden'), 500);
-
-                    } else if (!isAuthReady) {
-                        // 處理首次登入或匿名登入
-                        try {
-                            if (initialAuthToken) {
-                                await signInWithCustomToken(auth, initialAuthToken);
-                            } else {
-                                await signInAnonymously(auth);
-                            }
-                        } catch (error) {
-                            console.error("Firebase Sign-In Error:", error);
-                            document.getElementById('user-sync-info').textContent = "連線失敗，請檢查配置";
-                        }
-                    }
-                });
-            } else {
-                console.error("Firebase Config is missing. Cannot proceed with cloud sync.");
-                document.getElementById('user-sync-info').textContent = "缺少 Firebase 配置，無法同步";
+            } catch(e) {
+                console.error("Firebase Initialization Failed:", e);
+                setLoaderStatus("錯誤：Firebase 初始化失敗", true);
+                document.getElementById('user-sync-info').textContent = "同步狀態: 初始化失敗";
+                setTimeout(dismissLoader, 3000); 
+                return;
             }
+
+            // 設置 Auth 狀態監聽器
+            onAuthStateChanged(auth, async (user) => {
+                if (user) {
+                    // 認證成功
+                    userId = user.uid;
+                    isAuthReady = true;
+                    document.getElementById('user-sync-info').textContent = `已同步 (用戶ID: ${userId})`;
+                    listenToProducts(); // 認證完成後，開始監聽資料
+                    dismissLoader();
+
+                } else if (!isAuthReady) {
+                    // 處理首次登入或匿名登入
+                    setLoaderStatus("正在進行使用者認證...");
+                    try {
+                        if (initialAuthToken) {
+                            await signInWithCustomToken(auth, initialAuthToken);
+                        } else {
+                            await signInAnonymously(auth);
+                        }
+                    } catch (error) {
+                        console.error("Firebase Sign-In Error:", error);
+                        setLoaderStatus("認證失敗，請檢查配置和網路", true);
+                        document.getElementById('user-sync-info').textContent = "連線失敗，請檢查配置";
+                        setTimeout(dismissLoader, 3000);
+                    }
+                }
+            });
         }
         
         /** 取得 Firestore 收藏路徑 */
@@ -402,6 +459,7 @@
                 }
             }, (error) => {
                 console.error("Firestore listen error: ", error);
+                document.getElementById('user-sync-info').textContent = "同步失敗，資料庫存取錯誤";
             });
         }
 
