@@ -406,7 +406,7 @@
         }
 
 
-        // --- UI Helpers (Same as before) ---
+        // --- UI Helpers ---
 
         function toggleQuantityInput(unit, mode = 'add') {
             const quantityGroupEl = document.getElementById(mode === 'add' ? 'quantity-group' : 'quantity-group-edit');
@@ -463,7 +463,7 @@
             };
         }
         
-        // --- Navigation / Modal Logic (Same as before) ---
+        // --- Navigation / Modal Logic ---
 
         function goDetail(id) {
             currentProductId = id;
@@ -477,6 +477,14 @@
             renderProductList();
             document.getElementById('page-detail').classList.remove('active');
             document.getElementById('page-home').classList.add('active');
+        }
+
+        function openEditModal() {
+            const product = products.find(p => p.id === currentProductId);
+            if (product) {
+                document.getElementById('input-edit-product-name').value = product.name;
+                openModal('modal-edit-product');
+            }
         }
 
         function openModal(modalId) {
@@ -505,7 +513,7 @@
             renderProductList();
         }
 
-        // --- Firestore CRUD Operations (UPDATED) ---
+        // --- Firestore CRUD Operations ---
 
         async function addProduct() {
             if (!isAuthReady) return;
@@ -848,12 +856,13 @@
             }).join('');
         }
         
-        // --- AI Analysis (Mocked) ---
+        // --- AI Analysis ---
         async function analyzePriceHistory() {
             // This function is mocked as API calls are not supported in this environment without an actual key.
             // The structure is kept for demonstration.
             const product = products.find(p => p.id === currentProductId);
             if (!product || product.prices.length === 0) {
+                // 應使用客製化 Modal 而非 console.warn/alert
                 console.warn("請先新增一些價格紀錄，AI 才能進行分析喔！"); 
                 return;
             }
@@ -912,6 +921,25 @@ ${JSON.stringify(historyData, null, 2)}
             
             container.innerHTML = marked.parse(mockAnalysis);
         }
+
+        // --- FIX: Expose functions to global scope for HTML inline handlers ---
+        window.goDetail = goDetail;
+        window.goHome = goHome;
+        window.openModal = openModal;
+        window.closeModal = closeModal;
+        window.handleSearch = handleSearch;
+        window.openEditModal = openEditModal;
+        window.deleteCurrentProduct = deleteCurrentProduct;
+        window.analyzePriceHistory = analyzePriceHistory;
+        window.addProduct = addProduct;
+        window.saveEditProduct = saveEditProduct;
+        window.addPrice = addPrice;
+        window.deletePrice = deletePrice;
+        window.openEditPriceModal = openEditPriceModal;
+        window.saveEditPrice = saveEditPrice;
+        window.toggleQuantityInput = toggleQuantityInput;
+        window.toggleQuantityInputEdit = toggleQuantityInputEdit;
+        // --- END FIX ---
 
     </script>
 </body>
