@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>價格追蹤器 (雲端修復版)</title>
+    <title>價格追蹤器 (雲端修復版 V2)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
@@ -120,9 +120,9 @@
         // ----------------------------------------------------
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, addDoc, setDoc, deleteDoc, onSnapshot, collection, query, getDocs, orderBy, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, addDoc, setDoc, deleteDoc, onSnapshot, collection, query, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // 設定 Firebase 變數
+        // 從環境變數中取得配置
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
@@ -131,6 +131,7 @@
         let userId = null;
         let isAuthReady = false;
         let unsubscribeSnapshot = null; // 用來儲存 onSnapshot 的取消訂閱函數
+        let productsCache = []; // 用於本地緩存資料，實現快速過濾
 
         // ----------------------------------------------------
         // II. UI Helper Functions
@@ -163,17 +164,31 @@
         // ----------------------------------------------------
         // III. Firebase Initialization and Authentication
         // ----------------------------------------------------
+        
+        // 這是根據您的 Firebase 專案截圖建立的備用配置
+        const FALLBACK_CONFIG = {
+            apiKey: "AIzaSyBMxQnCtr-iZMqhMXJIKVPes-J7F7IKn0o",
+            authDomain: "pricetracker-ea789.firebaseapp.com",
+            projectId: "pricetracker-ea789",
+            storageBucket: "pricetracker-ea789.firebasestorage.app",
+            messagingSenderId: "53531899504",
+            appId: "1:53531899504:web:9f740a2ff886742a6566b5",
+            measurementId: "G-4F25XN149H"
+        };
+
 
         async function setupAuthAndFirestore() {
-            if (!firebaseConfig) {
-                displayError("無法載入 Firebase 配置。請檢查 Canvas 環境設置。");
-                setAuthStatus("配置錯誤", 'bg-red-500');
-                return;
+            let config = firebaseConfig;
+
+            if (!config) {
+                console.warn("Firebase configuration (__firebase_config) not found in environment. Using hardcoded fallback.");
+                config = FALLBACK_CONFIG;
+                setAuthStatus("配置錯誤 (使用備用配置)", 'bg-orange-500');
             }
 
             try {
                 // 1. 初始化 Firebase
-                app = initializeApp(firebaseConfig);
+                app = initializeApp(config);
                 db = getFirestore(app);
                 auth = getAuth(app);
                 setLogLevel('debug'); // 開啟日誌以協助除錯
@@ -206,7 +221,8 @@
                 });
 
             } catch (e) {
-                displayError(`Firebase 初始化失敗: ${e.message}`);
+                // 如果連備用配置都無法初始化
+                displayError(`Firebase 初始化失敗: ${e.message}. 請確認您的 API Key 和配置是否正確。`);
                 setAuthStatus("初始化失敗", 'bg-red-500');
             }
         }
@@ -215,12 +231,12 @@
         // IV. Firestore Data Operations
         // ----------------------------------------------------
         
-        // **核心修復點: 確保使用正確的 Collection Path**
         function getProductsCollectionRef() {
             if (!userId || !db) {
-                throw new Error("Firestore 或 User ID 尚未準備好.");
+                throw new Error("Firestore or User ID is not ready.");
             }
             // 這是根據您 Firestore 規則所建立的正確路徑結構
+            // 路徑: artifacts/{appId}/users/{userId}/products
             const collectionPath = `artifacts/${appId}/users/${userId}/products`;
             return collection(db, collectionPath);
         }
@@ -239,7 +255,7 @@
 
             try {
                 const productsRef = getProductsCollectionRef();
-                // 創建查詢，暫時不在 Firestore 層面排序以避免索引問題
+                // 創建查詢，不使用 orderBy，在前端排序
                 const q = query(productsRef);
                 
                 // 設置實時監聽
@@ -249,25 +265,25 @@
                         productsData.push({ id: doc.id, ...doc.data() });
                     });
                     
-                    // 在前端進行排序 (依據單位價格)
-                    productsData.sort((a, b) => calculateUnitPrice(a) - calculateUnitPrice(b));
+                    // 1. 更新本地緩存
+                    productsCache = productsData; 
 
-                    renderProducts(productsData);
+                    // 2. 在前端進行排序 (依據單位價格)
+                    productsCache.sort((a, b) => calculateUnitPrice(a) - calculateUnitPrice(b));
+
+                    // 3. 渲染 (渲染函數將處理篩選)
+                    renderProducts(productsCache);
                     hideLoading();
 
-                    if (productsData.length === 0) {
-                        document.getElementById('noProductsMessage').classList.remove('hidden');
-                    } else {
-                        document.getElementById('noProductsMessage').classList.add('hidden');
-                    }
-
                 }, (error) => {
+                    // 如果出現 Firestore 權限錯誤，會在這裡捕獲
                     displayError(`讀取資料失敗 (權限/網路): ${error.message}`);
                     setAuthStatus("連線錯誤", 'bg-red-500');
                     hideLoading();
                 });
 
             } catch (e) {
+                // 捕獲 getProductsCollectionRef 拋出的錯誤 (例如: userId 缺失)
                 displayError(`初始化資料監聽失敗: ${e.message}`);
                 hideLoading();
             }
@@ -334,7 +350,6 @@
         function createProductCard(product) {
             const unitPrice = calculateUnitPrice(product);
             
-            // 使用 flex-col 在小螢幕上讓文字垂直堆疊，在大螢幕上則可以並排
             const card = document.createElement('div');
             card.className = 'product-card bg-white p-4 rounded-xl shadow-md cursor-pointer flex flex-col justify-between';
             card.onclick = () => showEditModal(product);
@@ -359,38 +374,29 @@
             const searchQuery = document.getElementById('searchQuery').value.toLowerCase();
             listElement.innerHTML = '';
             
+            // 在本地緩存的資料上進行過濾
             const filteredProducts = products.filter(product => 
                 product.name.toLowerCase().includes(searchQuery)
             );
 
-            filteredProducts.forEach(product => {
-                listElement.appendChild(createProductCard(product));
-            });
+            if (filteredProducts.length === 0 && productsCache.length > 0) {
+                 // 有資料但被篩選掉了
+                 listElement.innerHTML = `<div class="col-span-3 text-center text-gray-400 p-10">找不到與 "${searchQuery}" 相關的商品。</div>`;
+            } else if (productsCache.length === 0) {
+                // 資料庫中沒有資料
+                document.getElementById('noProductsMessage').classList.remove('hidden');
+            } else {
+                // 顯示過濾後的或全部資料
+                document.getElementById('noProductsMessage').classList.add('hidden');
+                filteredProducts.forEach(product => {
+                    listElement.appendChild(createProductCard(product));
+                });
+            }
         }
 
         window.filterProducts = function() {
-            // loadProducts 函數會觸發 onSnapshot，但我們只需要在前端過濾，所以直接呼叫 renderProducts
-            // 由於 productsData 是在 onSnapshot 內部管理的，這裡我們需要重新載入或將資料存為全局變數。
-            // 為了簡化，如果資料量不大，我們讓 onSnapshot 的回調函數負責重新渲染和過濾。
-            // 這裡我們只觸發一次重新渲染 (假設 productsData 在 renderProducts 內部可以獲取到 - 但實際不是)
-            // 由於這是單一檔案，我們讓 loadProducts 重新運行。
-
-            // 為了避免重複的 Firestore 呼叫，我們需要一個全局/模組級的資料儲存。
-            // 這裡假設 onSnapshot 已經啟動，它會在每次資料變動時提供最新資料。
-            // 我們需要在 onSnapshot 範圍外儲存資料，但這裡我們先保留簡單的 oninput 觸發 render。
-
-            // 重啟監聽會消耗資源。更好的做法是將產品資料存儲在 `let productsCache = [];`
-            // 但由於我們沒有這個緩存，現在我們先不做任何操作，並假設 onSnapshot 會處理好一切。
-            // 實際上，為了讓篩選器工作，我們需要修改 onSnapshot 的邏輯，但這會讓程式碼複雜。
-            // 暫時保持現狀: 每次輸入僅篩選 DOM 元素。
-            const products = Array.from(document.getElementById('productList').children).map(card => {
-                // 從卡片 DOM 元素提取資訊並重新渲染，這很麻煩。
-                // 最佳解法是將 productsData 提升為模組作用域變數。
-                // 暫時先重新跑一次 loadProducts (它會取消舊的訂閱並重新訂閱，但可以接受作為快速修復)
-                // 實際上，我將在 renderProducts 函數內進行過濾
-                loadProducts();
-            });
-
+            // 由於 productsCache 已被 onSnapshot 更新並排序，我們只需重新渲染即可
+            renderProducts(productsCache);
         };
 
 
@@ -427,6 +433,12 @@
 
         form.onsubmit = function(e) {
             e.preventDefault();
+            // 檢查是否已認證
+            if (!isAuthReady || !userId) {
+                displayError("認證尚未完成或失敗。請稍候再試或刷新頁面。");
+                return;
+            }
+
             const product = {
                 id: document.getElementById('productId').value,
                 name: document.getElementById('name').value,
