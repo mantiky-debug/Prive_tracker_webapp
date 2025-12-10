@@ -298,6 +298,7 @@
         import { getFirestore, doc, setDoc, deleteDoc, collection, onSnapshot, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Global Constants
+        const apiKey = "AIzaSyAt4beTHAZG7TaWTz8RPgPdk-zpwg_s9P1"; 
         const LB_TO_G = 453.592; // 1 磅約等於 453.592 克
 
         // --- 解決連線問題的核心代碼 ---
@@ -328,6 +329,7 @@
         let auth;
         let userId = 'loading'; // Will be set after auth
         let isAuthReady = false;
+        
         
         // --- State Management ---
         let products = [];
