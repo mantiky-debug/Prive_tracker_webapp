@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>價格追蹤小幫手 - 智慧導航版</title>
+    <title>價格追蹤小幫手 - 自動記錄版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -37,9 +37,19 @@
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         .btn-bounce:active { transform: scale(0.95); }
         
-        /* 動態按鈕切換 */
         .btn-mode-add { background-color: #0d9488; color: white; }
         .btn-mode-search { background-color: #e5e7eb; color: #9ca3af; }
+        
+        /* 日期標籤樣式 */
+        .date-badge {
+            font-size: 0.65rem;
+            color: #9ca3af;
+            background: #f3f4f6;
+            padding: 1px 6px;
+            border-radius: 4px;
+            display: inline-block;
+            margin-top: 2px;
+        }
     </style>
 </head>
 <body class="pb-20">
@@ -48,53 +58,52 @@
     <header class="bg-teal-700 text-white p-5 sticky top-0 z-50 shadow-lg">
         <div class="container mx-auto text-center">
             <h1 class="text-xl font-bold flex justify-center items-center tracking-wide">
-                <i class="fas fa-search-dollar mr-3 text-teal-300"></i> 價格對比小幫手
+                <i class="fas fa-history mr-3 text-teal-300"></i> 自動價格日誌
             </h1>
         </div>
     </header>
 
     <main class="container mx-auto p-4 max-w-2xl">
         
-        <!-- 智慧操作列：組合搜尋與新增 -->
+        <!-- 智慧操作列 -->
         <div class="mb-8 sticky top-[80px] z-40">
             <div class="flex items-center gap-2 bg-white p-2 rounded-2xl shadow-md smart-input-container transition-all">
                 <div class="pl-3 text-gray-400">
                     <i id="searchIcon" class="fas fa-search"></i>
                 </div>
-                <input type="text" id="smartInput" oninput="handleSmartInput()" placeholder="搜尋現有產品或直接輸入新名稱..." 
+                <input type="text" id="smartInput" oninput="handleSmartInput()" placeholder="搜尋或輸入新產品名稱..." 
                     class="flex-1 p-3 bg-transparent border-none focus:ring-0 text-gray-700 font-medium">
                 
-                <!-- 動態按鈕：當搜尋無結果或有輸入文字時顯示為新增 -->
                 <button id="actionBtn" onclick="handleAction()" class="p-3 px-5 rounded-xl font-bold btn-bounce transition-all text-sm btn-mode-search">
                     <span id="btnText">搜尋</span>
                 </button>
             </div>
-            <p id="helperText" class="text-[10px] text-gray-400 mt-2 ml-4">
-                提示：若搜尋不到，點擊右側按鈕可直接建立新產品。
-            </p>
         </div>
 
         <!-- 產品列表 -->
-        <div id="productList" class="space-y-6">
-            <!-- 由 JavaScript 動態生成 -->
-        </div>
+        <div id="productList" class="space-y-6"></div>
 
-        <!-- 空狀態 (整合進列表邏輯) -->
+        <!-- 空狀態 -->
         <div id="emptyState" class="hidden text-center py-20">
             <div class="bg-gray-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
                 <i class="fas fa-plus text-2xl text-teal-500"></i>
             </div>
-            <p class="text-gray-500 font-medium">查無此產品</p>
-            <p class="text-gray-400 text-xs">點擊上方按鈕立即建立「<span id="missingName" class="text-teal-600 font-bold"></span>」</p>
+            <p class="text-gray-500 font-medium">找不到對應產品</p>
+            <p class="text-gray-400 text-xs">點擊按鈕建立「<span id="missingName" class="text-teal-600 font-bold"></span>」</p>
         </div>
     </main>
 
     <script>
-        // --- 資料層 ---
-        let products = JSON.parse(localStorage.getItem('priceTracker_stable_v1') || '[]');
+        let products = JSON.parse(localStorage.getItem('priceTracker_v2_autoDate') || '[]');
 
         function save() {
-            localStorage.setItem('priceTracker_stable_v1', JSON.stringify(products));
+            localStorage.setItem('priceTracker_v2_autoDate', JSON.stringify(products));
+        }
+
+        // 格式化日期顯示 (例如: 12/18)
+        function formatDate(isoString) {
+            const date = new Date(isoString);
+            return `${date.getMonth() + 1}/${date.getDate()}`;
         }
 
         function calculateStandard(price, qty, unit) {
@@ -111,36 +120,27 @@
             return { stdPrice, stdUnit };
         }
 
-        // --- 核心邏輯：搜尋與新增的整合 ---
-
         function handleSmartInput() {
             const val = document.getElementById('smartInput').value.trim();
             const actionBtn = document.getElementById('actionBtn');
             const btnText = document.getElementById('btnText');
             const searchIcon = document.getElementById('searchIcon');
 
-            // 執行過濾與渲染
             const filteredCount = renderApp();
 
             if (val.length > 0) {
-                // 如果輸入文字且過濾結果為 0，切換為「新增」模式
                 if (filteredCount === 0) {
-                    actionBtn.classList.remove('btn-mode-search');
-                    actionBtn.classList.add('btn-mode-add');
-                    btnText.innerText = "建立新卡片";
+                    actionBtn.classList.replace('btn-mode-search', 'btn-mode-add');
+                    btnText.innerText = "新增產品";
                     searchIcon.className = "fas fa-plus text-teal-500";
                     document.getElementById('missingName').innerText = val;
                 } else {
-                    // 仍有結果，維持搜尋感
-                    actionBtn.classList.add('btn-mode-search');
-                    actionBtn.classList.remove('btn-mode-add');
+                    actionBtn.classList.replace('btn-mode-add', 'btn-mode-search');
                     btnText.innerText = "搜尋中";
                     searchIcon.className = "fas fa-search";
                 }
             } else {
-                // 空白狀態
-                actionBtn.classList.add('btn-mode-search');
-                actionBtn.classList.remove('btn-mode-add');
+                actionBtn.classList.replace('btn-mode-add', 'btn-mode-search');
                 btnText.innerText = "搜尋";
                 searchIcon.className = "fas fa-search";
             }
@@ -151,36 +151,17 @@
             const val = input.value.trim();
             if (!val) return;
 
-            // 檢查是否已存在
             const existing = products.find(p => p.name === val);
             if (existing) {
-                // 若已存在，則清除輸入並定位到該項目
                 input.value = "";
                 handleSmartInput();
                 return;
             }
 
-            // 建立新產品
             products.unshift({ id: Date.now(), name: val, prices: [] });
             input.value = "";
             save();
             handleSmartInput();
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-
-        function updateProductName(prodId, newName) {
-            const product = products.find(p => p.id === prodId);
-            if (product && newName.trim()) {
-                product.name = newName.trim();
-                save();
-            }
-        }
-
-        function deleteProduct(prodId) {
-            if (!confirm('確定刪除此產品卡片？')) return;
-            products = products.filter(p => p.id !== prodId);
-            save();
-            renderApp();
         }
 
         function addCase(prodId) {
@@ -198,12 +179,23 @@
 
             const { stdPrice, stdUnit } = calculateStandard(price, qty, unit);
             const product = products.find(p => p.id === prodId);
+            
+            // --- 重點：自動記錄當前日期 ---
             product.prices.unshift({
                 id: Date.now(),
-                location, price, rawQuantity: qty, rawUnit: unit,
-                standardPrice: stdPrice, standardUnitLabel: stdUnit,
-                date: new Date().toISOString()
+                location, 
+                price, 
+                rawQuantity: qty, 
+                rawUnit: unit,
+                standardPrice: stdPrice, 
+                standardUnitLabel: stdUnit,
+                date: new Date().toISOString() // 這裡自動儲存 ISO 格式時間
             });
+
+            // 清空輸入框
+            locEl.value = "";
+            priceEl.value = "";
+            qtyEl.value = "";
 
             save();
             renderApp();
@@ -234,7 +226,12 @@
             renderApp();
         }
 
-        // --- 渲染 ---
+        function deleteProduct(prodId) {
+            if (!confirm('確定刪除此產品卡片？')) return;
+            products = products.filter(p => p.id !== prodId);
+            save();
+            renderApp();
+        }
 
         function renderApp() {
             const list = document.getElementById('productList');
@@ -260,11 +257,10 @@
                 return `
                 <div class="bg-white rounded-[2rem] card-shadow overflow-hidden border border-gray-100">
                     <div class="bg-gray-50/80 px-6 py-4 flex justify-between items-center border-b border-gray-100">
-                        <input type="text" value="${p.name}" 
-                            onchange="updateProductName(${p.id}, this.value)"
-                            class="font-bold text-gray-800 text-lg bg-transparent border-none focus:ring-0 w-full hover:bg-white rounded-lg transition-colors p-1 px-2 -ml-2">
+                        <input type="text" value="${p.name}" onchange="updateProductName(${p.id}, this.value)"
+                            class="font-bold text-gray-800 text-lg bg-transparent border-none focus:ring-0 w-full rounded-lg p-1 px-2 -ml-2">
                         <button onclick="deleteProduct(${p.id})" class="text-gray-300 hover:text-red-500 transition-colors ml-4">
-                            <i class="fas fa-trash-alt text-sm"></i>
+                            <i class="fas fa-trash-alt text-xs"></i>
                         </button>
                     </div>
 
@@ -272,9 +268,8 @@
                         <table class="w-full text-sm">
                             <thead>
                                 <tr class="text-gray-400 text-[10px] uppercase tracking-wider">
-                                    <th class="text-left px-6 py-3">購買地點</th>
-                                    <th class="text-left px-2 py-3">總價</th>
-                                    <th class="text-left px-2 py-3">規格</th>
+                                    <th class="text-left px-6 py-3">地點與日期</th>
+                                    <th class="text-left px-2 py-3">總價/規格</th>
                                     <th class="text-right px-6 py-3">平均單價</th>
                                     <th class="w-10"></th>
                                 </tr>
@@ -286,29 +281,21 @@
                                             <input type="text" value="${c.location}" 
                                                 onchange="updateCase(${p.id}, ${c.id}, 'location', this.value)"
                                                 class="inline-edit-input w-full font-medium text-gray-600 text-xs">
-                                        </td>
-                                        <td class="px-2 py-3">
-                                            <div class="flex items-center text-gray-900 font-bold">
-                                                <span class="text-[10px] mr-0.5">$</span>
-                                                <input type="number" step="0.1" value="${c.price}" 
-                                                    onchange="updateCase(${p.id}, ${c.id}, 'price', this.value)"
-                                                    class="inline-edit-input w-16">
+                                            <!-- 自動記錄的日期標籤 -->
+                                            <div class="date-badge">
+                                                <i class="far fa-calendar-alt mr-1"></i>${formatDate(c.date)}
                                             </div>
                                         </td>
                                         <td class="px-2 py-3">
+                                            <div class="flex items-center text-gray-900 font-bold mb-1">
+                                                <span class="text-[10px] mr-0.5">$</span>
+                                                <input type="number" step="0.1" value="${c.price}" onchange="updateCase(${p.id}, ${c.id}, 'price', this.value)"
+                                                    class="inline-edit-input w-12 text-xs">
+                                            </div>
                                             <div class="flex items-center gap-1">
-                                                <input type="number" step="0.1" value="${c.rawQuantity}" 
-                                                    onchange="updateCase(${p.id}, ${c.id}, 'rawQuantity', this.value)"
-                                                    class="inline-edit-input w-8 text-center text-xs">
-                                                <select onchange="updateCase(${p.id}, ${c.id}, 'rawUnit', this.value)"
-                                                    class="bg-transparent text-[10px] text-gray-400 focus:outline-none">
-                                                    <option value="pc" ${c.rawUnit === 'pc' ? 'selected' : ''}>pc</option>
-                                                    <option value="pack" ${c.rawUnit === 'pack' ? 'selected' : ''}>包</option>
-                                                    <option value="g" ${c.rawUnit === 'g' ? 'selected' : ''}>g</option>
-                                                    <option value="kg" ${c.rawUnit === 'kg' ? 'selected' : ''}>kg</option>
-                                                    <option value="ml" ${c.rawUnit === 'ml' ? 'selected' : ''}>ml</option>
-                                                    <option value="L" ${c.rawUnit === 'L' ? 'selected' : ''}>L</option>
-                                                </select>
+                                                <input type="number" step="0.1" value="${c.rawQuantity}" onchange="updateCase(${p.id}, ${c.id}, 'rawQuantity', this.value)"
+                                                    class="inline-edit-input w-6 text-[10px] text-gray-400">
+                                                <span class="text-[10px] text-gray-400">${c.rawUnit}</span>
                                             </div>
                                         </td>
                                         <td class="px-6 py-3 text-right">
@@ -328,6 +315,7 @@
                         </table>
                     </div>
 
+                    <!-- 新增區域 -->
                     <div class="p-4 bg-teal-50/20 border-t border-gray-50">
                         <div class="flex gap-2 items-center">
                             <input type="text" id="new-loc-${p.id}" placeholder="地點" class="flex-1 p-2 text-xs rounded-xl border-none shadow-inner bg-gray-50 focus:bg-white transition-all px-3">
@@ -335,11 +323,8 @@
                             <input type="number" id="new-qty-${p.id}" placeholder="數量" class="w-12 p-2 text-xs rounded-xl border-none shadow-inner bg-gray-50 focus:bg-white px-2">
                             <select id="new-unit-${p.id}" class="w-16 p-2 text-xs rounded-xl border-none shadow-inner bg-gray-50">
                                 <option value="pc">pc</option>
-                                <option value="pack">包</option>
                                 <option value="g">g</option>
-                                <option value="kg">kg</option>
                                 <option value="ml">ml</option>
-                                <option value="L">L</option>
                             </select>
                             <button onclick="addCase(${p.id})" class="bg-teal-600 text-white p-2.5 rounded-xl btn-bounce shadow-md">
                                 <i class="fas fa-plus text-xs"></i>
