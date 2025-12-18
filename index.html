@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>價格追蹤小幫手 - 自動記錄版</title>
+    <title>價格追蹤小幫手 - Excel 管理版</title>
+    <!-- 引入 SheetJS 用於處理 Excel -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -14,33 +16,9 @@
             background-color: #f3f4f6;
             -webkit-tap-highlight-color: transparent;
         }
-        .card-shadow {
-            box-shadow: 0 4px 20px rgba(0,0,0,0.05);
-        }
-        .smart-input-container:focus-within {
-            ring: 2px solid #0d9488;
-            background-color: white;
-        }
-        .inline-edit-input {
-            background-color: transparent;
-            border: 1px solid transparent;
-            transition: all 0.2s;
-            padding: 4px;
-            border-radius: 6px;
-        }
-        .inline-edit-input:hover, .inline-edit-input:focus {
-            border-color: #e5e7eb;
-            background-color: #f9fafb;
-            outline: none;
-        }
+        .card-shadow { box-shadow: 0 4px 20px rgba(0,0,0,0.05); }
         .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         .btn-bounce:active { transform: scale(0.95); }
-        
-        .btn-mode-add { background-color: #0d9488; color: white; }
-        .btn-mode-search { background-color: #e5e7eb; color: #9ca3af; }
-        
-        /* 日期標籤樣式 */
         .date-badge {
             font-size: 0.65rem;
             color: #9ca3af;
@@ -52,29 +30,38 @@
         }
     </style>
 </head>
-<body class="pb-20">
+<body class="pb-24">
 
     <!-- Header -->
     <header class="bg-teal-700 text-white p-5 sticky top-0 z-50 shadow-lg">
-        <div class="container mx-auto text-center">
-            <h1 class="text-xl font-bold flex justify-center items-center tracking-wide">
-                <i class="fas fa-history mr-3 text-teal-300"></i> 自動價格日誌
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-xl font-bold flex items-center tracking-wide">
+                <i class="fas fa-file-excel mr-3 text-teal-300"></i> 價格數據中心
             </h1>
+            <div class="flex gap-2">
+                <button onclick="exportToExcel()" class="bg-teal-600 hover:bg-teal-500 p-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center">
+                    <i class="fas fa-download mr-1"></i> 匯出
+                </button>
+                <label class="bg-teal-800 hover:bg-teal-900 p-2 px-3 rounded-lg text-xs font-bold cursor-pointer transition-all flex items-center">
+                    <i class="fas fa-upload mr-1"></i> 匯入
+                    <input type="file" id="importInput" class="hidden" accept=".xlsx, .xls" onchange="importFromExcel(event)">
+                </label>
+            </div>
         </div>
     </header>
 
     <main class="container mx-auto p-4 max-w-2xl">
         
         <!-- 智慧操作列 -->
-        <div class="mb-8 sticky top-[80px] z-40">
-            <div class="flex items-center gap-2 bg-white p-2 rounded-2xl shadow-md smart-input-container transition-all">
+        <div class="mb-8">
+            <div class="flex items-center gap-2 bg-white p-2 rounded-2xl shadow-md transition-all">
                 <div class="pl-3 text-gray-400">
                     <i id="searchIcon" class="fas fa-search"></i>
                 </div>
-                <input type="text" id="smartInput" oninput="handleSmartInput()" placeholder="搜尋或輸入新產品名稱..." 
+                <input type="text" id="smartInput" oninput="handleSmartInput()" placeholder="搜尋產品或輸入新名稱..." 
                     class="flex-1 p-3 bg-transparent border-none focus:ring-0 text-gray-700 font-medium">
                 
-                <button id="actionBtn" onclick="handleAction()" class="p-3 px-5 rounded-xl font-bold btn-bounce transition-all text-sm btn-mode-search">
+                <button id="actionBtn" onclick="handleAction()" class="p-3 px-5 rounded-xl font-bold btn-bounce transition-all text-sm bg-gray-200 text-gray-500">
                     <span id="btnText">搜尋</span>
                 </button>
             </div>
@@ -94,16 +81,119 @@
     </main>
 
     <script>
-        let products = JSON.parse(localStorage.getItem('priceTracker_v2_autoDate') || '[]');
+        // 資料結構版本 V3
+        let products = JSON.parse(localStorage.getItem('priceTracker_v3_excel') || '[]');
 
         function save() {
-            localStorage.setItem('priceTracker_v2_autoDate', JSON.stringify(products));
+            localStorage.setItem('priceTracker_v3_excel', JSON.stringify(products));
         }
 
-        // 格式化日期顯示 (例如: 12/18)
-        function formatDate(isoString) {
-            const date = new Date(isoString);
-            return `${date.getMonth() + 1}/${date.getDate()}`;
+        // --- Excel 匯出功能 ---
+        function exportToExcel() {
+            if (products.length === 0) {
+                alert("目前沒有資料可以匯出");
+                return;
+            }
+
+            let exportData = [];
+            products.forEach(p => {
+                if (p.prices.length === 0) {
+                    exportData.push({
+                        "產品名稱": p.name,
+                        "記錄日期": "",
+                        "購買地點": "",
+                        "價格": "",
+                        "數量": "",
+                        "單位": "",
+                        "每單位價格": ""
+                    });
+                } else {
+                    p.prices.forEach(c => {
+                        exportData.push({
+                            "產品名稱": p.name,
+                            "記錄日期": new Date(c.date).toLocaleString(),
+                            "購買地點": c.location,
+                            "價格": c.price,
+                            "數量": c.rawQuantity,
+                            "單位": c.rawUnit,
+                            "每單位價格": c.standardPrice.toFixed(3)
+                        });
+                    });
+                }
+            });
+
+            const worksheet = XLSX.utils.json_to_sheet(exportData);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "價格紀錄");
+            XLSX.writeFile(workbook, `價格追蹤_${new Date().toLocaleDateString()}.xlsx`);
+        }
+
+        // --- Excel 匯入功能 (修復 RangeError) ---
+        function importFromExcel(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+
+                    if (jsonData.length === 0) {
+                        alert("Excel 檔案內沒有有效數據");
+                        return;
+                    }
+
+                    jsonData.forEach(row => {
+                        const prodName = row["產品名稱"];
+                        if (!prodName) return;
+
+                        let product = products.find(p => p.name === prodName);
+                        if (!product) {
+                            product = { id: Date.now() + Math.random(), name: prodName, prices: [] };
+                            products.push(product);
+                        }
+
+                        if (row["價格"] !== undefined && row["價格"] !== "") {
+                            const price = parseFloat(row["價格"]);
+                            const qty = parseFloat(row["數量"]) || 1;
+                            const unit = row["單位"] || "pc";
+                            const { stdPrice, stdUnit } = calculateStandard(price, qty, unit);
+
+                            // 修復日期錯誤：檢查日期是否有效
+                            let importDate = new Date(); // 預設今天
+                            if (row["記錄日期"]) {
+                                const parsedDate = new Date(row["記錄日期"]);
+                                if (!isNaN(parsedDate.getTime())) {
+                                    importDate = parsedDate;
+                                }
+                            }
+
+                            product.prices.unshift({
+                                id: Date.now() + Math.random(),
+                                location: row["購買地點"] || "匯入資料",
+                                price: price,
+                                rawQuantity: qty,
+                                rawUnit: unit,
+                                standardPrice: stdPrice,
+                                standardUnitLabel: stdUnit,
+                                date: importDate.toISOString() // 現在這行保證安全
+                            });
+                        }
+                    });
+
+                    save();
+                    renderApp();
+                    alert("匯入成功！");
+                } catch (err) {
+                    console.error(err);
+                    alert("處理 Excel 時發生錯誤，請檢查格式。");
+                }
+                event.target.value = ''; 
+            };
+            reader.readAsArrayBuffer(file);
         }
 
         function calculateStandard(price, qty, unit) {
@@ -130,17 +220,18 @@
 
             if (val.length > 0) {
                 if (filteredCount === 0) {
-                    actionBtn.classList.replace('btn-mode-search', 'btn-mode-add');
+                    actionBtn.classList.remove('bg-gray-200', 'text-gray-500');
+                    actionBtn.classList.add('bg-teal-600', 'text-white');
                     btnText.innerText = "新增產品";
                     searchIcon.className = "fas fa-plus text-teal-500";
                     document.getElementById('missingName').innerText = val;
                 } else {
-                    actionBtn.classList.replace('btn-mode-add', 'btn-mode-search');
+                    actionBtn.classList.replace('bg-teal-600', 'bg-gray-200');
                     btnText.innerText = "搜尋中";
                     searchIcon.className = "fas fa-search";
                 }
             } else {
-                actionBtn.classList.replace('btn-mode-add', 'btn-mode-search');
+                actionBtn.className = "p-3 px-5 rounded-xl font-bold btn-bounce transition-all text-sm bg-gray-200 text-gray-500";
                 btnText.innerText = "搜尋";
                 searchIcon.className = "fas fa-search";
             }
@@ -170,33 +261,24 @@
             const qtyEl = document.getElementById(`new-qty-${prodId}`);
             const unitEl = document.getElementById(`new-unit-${prodId}`);
 
-            const location = locEl.value.trim() || '未指定地點';
             const price = parseFloat(priceEl.value);
+            if (isNaN(price)) return;
+
+            const location = locEl.value.trim() || '未指定地點';
             const qty = parseFloat(qtyEl.value) || 1;
             const unit = unitEl.value;
-
-            if (isNaN(price)) return;
 
             const { stdPrice, stdUnit } = calculateStandard(price, qty, unit);
             const product = products.find(p => p.id === prodId);
             
-            // --- 重點：自動記錄當前日期 ---
             product.prices.unshift({
                 id: Date.now(),
-                location, 
-                price, 
-                rawQuantity: qty, 
-                rawUnit: unit,
-                standardPrice: stdPrice, 
-                standardUnitLabel: stdUnit,
-                date: new Date().toISOString() // 這裡自動儲存 ISO 格式時間
+                location, price, rawQuantity: qty, rawUnit: unit,
+                standardPrice: stdPrice, standardUnitLabel: stdUnit,
+                date: new Date().toISOString()
             });
 
-            // 清空輸入框
-            locEl.value = "";
-            priceEl.value = "";
-            qtyEl.value = "";
-
+            locEl.value = priceEl.value = qtyEl.value = "";
             save();
             renderApp();
         }
@@ -227,7 +309,7 @@
         }
 
         function deleteProduct(prodId) {
-            if (!confirm('確定刪除此產品卡片？')) return;
+            if (!confirm('確定刪除此卡片？')) return;
             products = products.filter(p => p.id !== prodId);
             save();
             renderApp();
@@ -257,9 +339,8 @@
                 return `
                 <div class="bg-white rounded-[2rem] card-shadow overflow-hidden border border-gray-100">
                     <div class="bg-gray-50/80 px-6 py-4 flex justify-between items-center border-b border-gray-100">
-                        <input type="text" value="${p.name}" onchange="updateProductName(${p.id}, this.value)"
-                            class="font-bold text-gray-800 text-lg bg-transparent border-none focus:ring-0 w-full rounded-lg p-1 px-2 -ml-2">
-                        <button onclick="deleteProduct(${p.id})" class="text-gray-300 hover:text-red-500 transition-colors ml-4">
+                        <span class="font-bold text-gray-800 text-lg">${p.name}</span>
+                        <button onclick="deleteProduct(${p.id})" class="text-gray-300 hover:text-red-500 transition-colors">
                             <i class="fas fa-trash-alt text-xs"></i>
                         </button>
                     </div>
@@ -269,7 +350,7 @@
                             <thead>
                                 <tr class="text-gray-400 text-[10px] uppercase tracking-wider">
                                     <th class="text-left px-6 py-3">地點與日期</th>
-                                    <th class="text-left px-2 py-3">總價/規格</th>
+                                    <th class="text-left px-2 py-3">價格/規格</th>
                                     <th class="text-right px-6 py-3">平均單價</th>
                                     <th class="w-10"></th>
                                 </tr>
@@ -280,22 +361,19 @@
                                         <td class="px-6 py-3">
                                             <input type="text" value="${c.location}" 
                                                 onchange="updateCase(${p.id}, ${c.id}, 'location', this.value)"
-                                                class="inline-edit-input w-full font-medium text-gray-600 text-xs">
-                                            <!-- 自動記錄的日期標籤 -->
+                                                class="w-full text-xs text-gray-600 bg-transparent border-none focus:ring-0 p-0 font-medium">
                                             <div class="date-badge">
-                                                <i class="far fa-calendar-alt mr-1"></i>${formatDate(c.date)}
+                                                <i class="far fa-calendar-alt mr-1"></i>${new Date(c.date).getMonth()+1}/${new Date(c.date).getDate()}
                                             </div>
                                         </td>
                                         <td class="px-2 py-3">
-                                            <div class="flex items-center text-gray-900 font-bold mb-1">
+                                            <div class="flex items-center text-gray-900 font-bold">
                                                 <span class="text-[10px] mr-0.5">$</span>
                                                 <input type="number" step="0.1" value="${c.price}" onchange="updateCase(${p.id}, ${c.id}, 'price', this.value)"
-                                                    class="inline-edit-input w-12 text-xs">
+                                                    class="w-12 bg-transparent border-none focus:ring-0 p-0 text-xs">
                                             </div>
-                                            <div class="flex items-center gap-1">
-                                                <input type="number" step="0.1" value="${c.rawQuantity}" onchange="updateCase(${p.id}, ${c.id}, 'rawQuantity', this.value)"
-                                                    class="inline-edit-input w-6 text-[10px] text-gray-400">
-                                                <span class="text-[10px] text-gray-400">${c.rawUnit}</span>
+                                            <div class="text-[10px] text-gray-400">
+                                                ${c.rawQuantity} ${c.rawUnit}
                                             </div>
                                         </td>
                                         <td class="px-6 py-3 text-right">
@@ -304,7 +382,7 @@
                                             </div>
                                             <div class="text-[9px] text-gray-400">/ 每 ${c.standardUnitLabel}</div>
                                         </td>
-                                        <td class="px-4 py-3 text-center">
+                                        <td class="px-4 py-3">
                                             <button onclick="deleteCase(${p.id}, ${c.id})" class="text-gray-200 hover:text-red-300">
                                                 <i class="fas fa-times text-xs"></i>
                                             </button>
@@ -315,18 +393,17 @@
                         </table>
                     </div>
 
-                    <!-- 新增區域 -->
                     <div class="p-4 bg-teal-50/20 border-t border-gray-50">
-                        <div class="flex gap-2 items-center">
-                            <input type="text" id="new-loc-${p.id}" placeholder="地點" class="flex-1 p-2 text-xs rounded-xl border-none shadow-inner bg-gray-50 focus:bg-white transition-all px-3">
-                            <input type="number" id="new-price-${p.id}" placeholder="總價" class="w-16 p-2 text-xs rounded-xl border-none shadow-inner bg-gray-50 focus:bg-white px-2">
-                            <input type="number" id="new-qty-${p.id}" placeholder="數量" class="w-12 p-2 text-xs rounded-xl border-none shadow-inner bg-gray-50 focus:bg-white px-2">
+                        <div class="flex gap-2">
+                            <input type="text" id="new-loc-${p.id}" placeholder="地點" class="flex-1 p-2 text-xs rounded-xl border-none shadow-inner bg-gray-50">
+                            <input type="number" id="new-price-${p.id}" placeholder="總價" class="w-16 p-2 text-xs rounded-xl border-none shadow-inner bg-gray-50">
+                            <input type="number" id="new-qty-${p.id}" placeholder="量" class="w-12 p-2 text-xs rounded-xl border-none shadow-inner bg-gray-50">
                             <select id="new-unit-${p.id}" class="w-16 p-2 text-xs rounded-xl border-none shadow-inner bg-gray-50">
                                 <option value="pc">pc</option>
                                 <option value="g">g</option>
                                 <option value="ml">ml</option>
                             </select>
-                            <button onclick="addCase(${p.id})" class="bg-teal-600 text-white p-2.5 rounded-xl btn-bounce shadow-md">
+                            <button onclick="addCase(${p.id})" class="bg-teal-600 text-white p-2.5 rounded-xl shadow-md">
                                 <i class="fas fa-plus text-xs"></i>
                             </button>
                         </div>
