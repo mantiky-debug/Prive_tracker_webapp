@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>價格追蹤小幫手 - 單位強化版</title>
+    <title>價格追蹤小幫手 - 功能完善版</title>
     <!-- 引入 SheetJS 用於 Excel 處理 -->
     <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -86,7 +86,6 @@
     <script>
         let products = JSON.parse(localStorage.getItem('priceTracker_v8') || '[]');
 
-        // 單位清單：新增斤、lb
         const UNIT_OPTIONS = [
             {v: 'pc', n: '個'}, {v: 'pack', n: '包'}, {v: 'box', n: '盒'},
             {v: 'g', n: 'g'}, {v: 'kg', n: 'kg'}, 
@@ -98,31 +97,24 @@
             localStorage.setItem('priceTracker_v8', JSON.stringify(products));
         }
 
-        // 核心計算邏輯：支援斤、磅、公斤、公克換算為統一基準（g）
         function calculateStandard(price, qty, unit) {
             let stdPrice = 0, stdUnit = 'pc';
             const p = parseFloat(price) || 0;
             const q = parseFloat(qty) || 1;
 
-            // 重量換算邏輯
             if (['g', 'kg', 'catty', 'lb'].includes(unit)) {
                 let totalGrams = 0;
                 if (unit === 'kg') totalGrams = q * 1000;
-                else if (unit === 'catty') totalGrams = q * 600; // 台斤 600g
-                else if (unit === 'lb') totalGrams = q * 453.59; // 磅 453.59g
+                else if (unit === 'catty') totalGrams = q * 600; 
+                else if (unit === 'lb') totalGrams = q * 453.59; 
                 else totalGrams = q;
-
                 stdPrice = p / totalGrams;
                 stdUnit = 'g';
-            } 
-            // 體積換算邏輯
-            else if (['ml', 'L'].includes(unit)) {
+            } else if (['ml', 'L'].includes(unit)) {
                 const totalMl = (unit === 'L') ? q * 1000 : q;
                 stdPrice = p / totalMl;
                 stdUnit = 'ml';
-            } 
-            // 數量換算邏輯
-            else {
+            } else {
                 stdPrice = p / q;
                 stdUnit = 'pc';
             }
@@ -134,7 +126,6 @@
             const actionBtn = document.getElementById('actionBtn');
             const btnText = document.getElementById('btnText');
             const searchIcon = document.getElementById('searchIcon');
-            
             const displayCount = renderApp();
 
             if (val.length > 0) {
@@ -158,17 +149,13 @@
             const input = document.getElementById('smartInput');
             const val = input.value.trim();
             if (!val) return;
-
             const existing = products.find(p => p.name.toLowerCase() === val.toLowerCase());
-            if (existing) {
-                input.value = "";
-                renderApp();
-            } else {
+            if (!existing) {
                 products.unshift({ id: Date.now(), name: val, prices: [] });
-                input.value = "";
                 save();
-                renderApp();
             }
+            input.value = "";
+            renderApp();
             handleSmartInput();
         }
 
@@ -234,7 +221,8 @@
                                             <div class="text-[9px] text-gray-400 font-normal">${c.date}</div>
                                         </td>
                                         <td class="px-2 py-4">
-                                            <div class="text-gray-700">$${c.price} / ${c.rawQuantity}${UNIT_OPTIONS.find(u => u.v === c.rawUnit)?.n || c.rawUnit}</div>
+                                            <div class="text-gray-700 font-medium">$${c.price} / ${c.rawQuantity}${UNIT_OPTIONS.find(u => u.v === c.rawUnit)?.n || c.rawUnit}</div>
+                                            ${c.note ? `<div class="text-[10px] text-orange-500 mt-0.5"><i class="fas fa-sticky-note mr-1 scale-75"></i>${c.note}</div>` : ''}
                                         </td>
                                         <td class="px-6 py-4 text-right">
                                             <span class="px-2 py-1 rounded-lg font-bold ${c.standardPrice === lowest && p.prices.length > 1 ? 'bg-orange-100 text-orange-600' : 'bg-teal-50 text-teal-600'}">
@@ -249,14 +237,14 @@
 
                     <div class="p-5 bg-white border-t border-gray-50">
                         <div class="grid grid-cols-4 gap-2 mb-2">
-                            <input type="text" id="new-loc-${p.id}" placeholder="地點" class="col-span-1 p-2.5 rounded-xl bg-gray-50 text-xs outline-none">
-                            <input type="number" id="new-price-${p.id}" placeholder="價格" class="col-span-1 p-2.5 rounded-xl bg-gray-50 text-xs outline-none">
-                            <input type="number" id="new-qty-${p.id}" placeholder="數量" class="col-span-1 p-2.5 rounded-xl bg-gray-50 text-xs outline-none">
-                            <select id="new-unit-${p.id}" class="col-span-1 p-2.5 rounded-xl bg-gray-50 text-xs outline-none">
+                            <input type="text" id="new-loc-${p.id}" placeholder="地點" class="col-span-1 p-2.5 rounded-xl bg-gray-50 text-xs outline-none focus:ring-1 focus:ring-teal-500/20">
+                            <input type="number" id="new-price-${p.id}" placeholder="價格" class="col-span-1 p-2.5 rounded-xl bg-gray-50 text-xs outline-none focus:ring-1 focus:ring-teal-500/20">
+                            <input type="number" id="new-qty-${p.id}" placeholder="數量" class="col-span-1 p-2.5 rounded-xl bg-gray-50 text-xs outline-none focus:ring-1 focus:ring-teal-500/20">
+                            <select id="new-unit-${p.id}" class="col-span-1 p-2.5 rounded-xl bg-gray-50 text-xs outline-none border-none">
                                 ${UNIT_OPTIONS.map(o => `<option value="${o.v}">${o.n}</option>`).join('')}
                             </select>
                         </div>
-                        <input type="text" id="new-note-${p.id}" placeholder="備註..." class="w-full p-2.5 text-xs rounded-xl bg-gray-50 outline-none mb-3">
+                        <input type="text" id="new-note-${p.id}" placeholder="備註..." class="w-full p-2.5 text-xs rounded-xl bg-gray-50 outline-none mb-3 focus:ring-1 focus:ring-teal-500/20">
                         <button onclick="addCase(${p.id})" class="w-full bg-teal-600 text-white font-bold py-3 rounded-2xl shadow-md btn-bounce text-sm">新增紀錄</button>
                     </div>
                 </div>
@@ -265,7 +253,59 @@
             return filtered.length;
         }
 
-        // 編輯名稱、匯出、匯入 (維持與之前版本一致)
+        function openEditCase(pid, cid) {
+            const p = products.find(x => x.id === pid);
+            const c = p.prices.find(x => x.id === cid);
+            document.getElementById('modalTitle').innerText = "編輯購物紀錄";
+            document.getElementById('modalBody').innerHTML = `
+                <div class="space-y-4">
+                    <div>
+                        <label class="text-[10px] text-gray-400 ml-1">地點</label>
+                        <input type="text" id="e-loc" value="${c.location}" class="w-full p-3 bg-gray-50 rounded-xl outline-none border-none text-sm">
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="text-[10px] text-gray-400 ml-1">價格</label>
+                            <input type="number" id="e-price" value="${c.price}" class="w-full p-3 bg-gray-50 rounded-xl outline-none border-none text-sm">
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-gray-400 ml-1">數量</label>
+                            <input type="number" id="e-qty" value="${c.rawQuantity}" class="w-full p-3 bg-gray-50 rounded-xl outline-none border-none text-sm">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-gray-400 ml-1">單位</label>
+                        <select id="e-unit" class="w-full p-3 bg-gray-50 rounded-xl outline-none border-none text-sm">
+                            ${UNIT_OPTIONS.map(o => `<option value="${o.v}" ${c.rawUnit === o.v ? 'selected' : ''}>${o.n}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-gray-400 ml-1">備註</label>
+                        <input type="text" id="e-note" value="${c.note || ''}" class="w-full p-3 bg-gray-50 rounded-xl outline-none border-none text-sm">
+                    </div>
+                    <button onclick="deleteCase(${pid}, ${cid})" class="w-full py-2 text-red-400 text-xs font-bold hover:bg-red-50 rounded-lg transition-colors">
+                        <i class="fas fa-trash-alt mr-1"></i> 刪除此筆紀錄
+                    </button>
+                </div>
+            `;
+            const btn = document.getElementById('modalConfirmBtn');
+            btn.onclick = () => {
+                c.location = document.getElementById('e-loc').value || '未指定';
+                c.price = parseFloat(document.getElementById('e-price').value) || 0;
+                c.rawQuantity = parseFloat(document.getElementById('e-qty').value) || 1;
+                c.rawUnit = document.getElementById('e-unit').value;
+                c.note = document.getElementById('e-note').value.trim();
+                
+                // 重新計算標準單價
+                const { stdPrice, stdUnit } = calculateStandard(c.price, c.rawQuantity, c.rawUnit);
+                c.standardPrice = stdPrice;
+                c.standardUnitLabel = stdUnit;
+                
+                save(); renderApp(); closeModal();
+            };
+            document.getElementById('editModal').classList.replace('hidden', 'flex');
+        }
+
         function editProductName(id, oldName) {
             document.getElementById('modalTitle').innerText = "修改產品名稱";
             document.getElementById('modalBody').innerHTML = `<input type="text" id="editNameInput" value="${oldName}" class="w-full p-3 rounded-xl bg-gray-50 border-none outline-none focus:ring-2 focus:ring-teal-500">`;
@@ -281,51 +321,26 @@
             document.getElementById('editModal').classList.replace('hidden', 'flex');
         }
 
-        function openEditCase(pid, cid) {
-            const p = products.find(x => x.id === pid);
-            const c = p.prices.find(x => x.id === cid);
-            document.getElementById('modalTitle').innerText = "編輯紀錄";
-            document.getElementById('modalBody').innerHTML = `
-                <div class="space-y-3">
-                    <input type="text" id="e-loc" value="${c.location}" class="w-full p-2 bg-gray-50 rounded-lg">
-                    <div class="flex gap-2">
-                        <input type="number" id="e-price" value="${c.price}" class="w-1/2 p-2 bg-gray-50 rounded-lg">
-                        <input type="number" id="e-qty" value="${c.rawQuantity}" class="w-1/2 p-2 bg-gray-50 rounded-lg">
-                    </div>
-                    <button onclick="deleteCase(${pid}, ${cid})" class="w-full py-2 text-red-500 text-xs font-bold">刪除此筆</button>
-                </div>
-            `;
-            const btn = document.getElementById('modalConfirmBtn');
-            btn.onclick = () => {
-                c.location = document.getElementById('e-loc').value;
-                c.price = parseFloat(document.getElementById('e-price').value);
-                c.rawQuantity = parseFloat(document.getElementById('e-qty').value);
-                const { stdPrice, stdUnit } = calculateStandard(c.price, c.rawQuantity, c.rawUnit);
-                c.standardPrice = stdPrice;
-                c.standardUnitLabel = stdUnit;
-                save(); renderApp(); closeModal();
-            };
-            document.getElementById('editModal').classList.replace('hidden', 'flex');
-        }
-
         function deleteCase(pid, cid) {
-            const p = products.find(x => x.id === pid);
-            p.prices = p.prices.filter(x => x.id !== cid);
-            save(); renderApp(); closeModal();
+            if (confirm("確定要刪除這筆紀錄？")) {
+                const p = products.find(x => x.id === pid);
+                p.prices = p.prices.filter(x => x.id !== cid);
+                save(); renderApp(); closeModal();
+            }
         }
 
         function deleteProduct(id) {
-            if (confirm("確定要刪除？")) { products = products.filter(p => p.id !== id); save(); renderApp(); }
+            if (confirm("確定要刪除整項產品及其所有紀錄？")) { products = products.filter(p => p.id !== id); save(); renderApp(); }
         }
 
         function closeModal() { document.getElementById('editModal').classList.replace('flex', 'hidden'); }
 
         function confirmClearAll() {
-            if (confirm("確定要清空所有資料嗎？")) { products = []; save(); renderApp(); }
+            if (confirm("警告：這將永久刪除所有產品與價格紀錄。確定要執行嗎？")) { products = []; save(); renderApp(); }
         }
 
         function exportToExcel() {
-            if (products.length === 0) return alert("無資料");
+            if (products.length === 0) return alert("無資料可匯出");
             const data = [];
             products.forEach(p => {
                 p.prices.forEach(c => {
@@ -335,6 +350,7 @@
                         "價格": c.price,
                         "數量": c.rawQuantity,
                         "單位": c.rawUnit,
+                        "備註": c.note || "",
                         "標準單價": c.standardPrice.toFixed(4),
                         "日期": c.date
                     });
@@ -343,7 +359,7 @@
             const ws = XLSX.utils.json_to_sheet(data);
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "PriceData");
-            XLSX.writeFile(wb, `價格追蹤_${new Date().toLocaleDateString()}.xlsx`);
+            XLSX.writeFile(wb, `價格追蹤_${new Date().toISOString().split('T')[0]}.xlsx`);
         }
 
         function importFromExcel(e) {
@@ -369,12 +385,13 @@
                         price: row["價格"],
                         rawQuantity: row["數量"],
                         rawUnit: row["單位"] || "pc",
+                        note: row["備註"] || "",
                         standardPrice: stdPrice,
                         standardUnitLabel: stdUnit,
                         date: row["日期"] || new Date().toLocaleDateString()
                     });
                 });
-                if (confirm(`即將匯入 ${newProducts.length} 個產品，是否確認？`)) {
+                if (confirm(`即將匯入 ${newProducts.length} 個產品，這會覆蓋現有資料，是否確認？`)) {
                     products = newProducts;
                     save(); renderApp();
                 }
