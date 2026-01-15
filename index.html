@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>價格追蹤小幫手 - 功能完善版</title>
+    <title>價格追蹤小幫手 V1.1</title>
     <!-- 引入 SheetJS 用於 Excel 處理 -->
     <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -29,6 +29,8 @@
             -webkit-backdrop-filter: blur(12px);
             border-bottom: 1px solid rgba(0,0,0,0.05);
         }
+
+        .price-row-top { background-color: rgba(255, 237, 213, 0.3); } /* 最低價行的輕微背景色 */
     </style>
 </head>
 <body class="pb-10">
@@ -50,6 +52,7 @@
     </header>
 
     <main class="container mx-auto max-w-2xl">
+        <!-- 搜尋與快速新增 -->
         <div class="sticky-search px-4 py-4">
             <div class="flex items-center gap-2 bg-white p-1.5 rounded-2xl shadow-lg border border-gray-100">
                 <div class="pl-3 text-gray-400"><i id="searchIcon" class="fas fa-search"></i></div>
@@ -61,17 +64,27 @@
             </div>
         </div>
 
+        <!-- 產品列表區 -->
         <div id="productList" class="px-4 space-y-6 mt-4"></div>
 
+        <!-- 空狀態 -->
         <div id="emptyState" class="hidden text-center py-20 px-4">
             <div class="bg-gray-200/50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
                 <i class="fas fa-search text-gray-400 text-2xl"></i>
             </div>
             <p class="text-gray-500 font-medium">無資料</p>
         </div>
+
+        <!-- 版本資訊 -->
+        <div class="mt-12 mb-6 text-center">
+            <div class="inline-block px-4 py-1.5 bg-gray-200 text-gray-500 text-[10px] font-bold rounded-full tracking-widest uppercase">
+                Version 1.1 - 最低價置頂版
+            </div>
+            <p class="text-[9px] text-gray-400 mt-2">© 2024 Price Tracker Helper</p>
+        </div>
     </main>
 
-    <!-- Modal -->
+    <!-- 彈出式編輯視窗 (Modal) -->
     <div id="editModal" class="fixed inset-0 bg-black/60 z-[100] hidden items-center justify-center p-4 backdrop-blur-sm">
         <div class="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl">
             <h3 id="modalTitle" class="text-lg font-bold text-gray-800 mb-4">編輯</h3>
@@ -84,6 +97,8 @@
     </div>
 
     <script>
+        // 版本號常數
+        const APP_VERSION = "V1.1";
         let products = JSON.parse(localStorage.getItem('priceTracker_v8') || '[]');
 
         const UNIT_OPTIONS = [
@@ -97,6 +112,7 @@
             localStorage.setItem('priceTracker_v8', JSON.stringify(products));
         }
 
+        // 標準化計算
         function calculateStandard(price, qty, unit) {
             let stdPrice = 0, stdUnit = 'pc';
             const p = parseFloat(price) || 0;
@@ -200,7 +216,12 @@
             document.getElementById('emptyState').classList.add('hidden');
 
             list.innerHTML = filtered.map(p => {
+                // 找出該產品的最低標準單價
                 const lowest = p.prices.length ? Math.min(...p.prices.map(c => c.standardPrice)) : 0;
+                
+                // 【V1.1 更新】將紀錄按標準單價排序 (最低的排在最前面)
+                const sortedPrices = [...p.prices].sort((a, b) => a.standardPrice - b.standardPrice);
+
                 return `
                 <div class="bg-white rounded-[2rem] card-shadow border border-gray-100 overflow-hidden">
                     <div class="px-6 py-4 flex justify-between items-center bg-gray-50/50 border-bottom border-gray-50">
@@ -214,23 +235,29 @@
                     <div class="max-h-64 overflow-y-auto no-scrollbar">
                         <table class="w-full text-xs">
                             <tbody class="divide-y divide-gray-50">
-                                ${p.prices.map(c => `
-                                    <tr onclick="openEditCase(${p.id}, ${c.id})" class="hover:bg-teal-50/30 cursor-pointer">
+                                ${sortedPrices.map(c => {
+                                    const isLowest = c.standardPrice === lowest && p.prices.length > 1;
+                                    return `
+                                    <tr onclick="openEditCase(${p.id}, ${c.id})" class="hover:bg-teal-50/30 cursor-pointer ${isLowest ? 'price-row-top' : ''}">
                                         <td class="px-6 py-4 font-medium text-gray-600">
-                                            ${c.location}
-                                            <div class="text-[9px] text-gray-400 font-normal">${c.date}</div>
+                                            <div class="flex items-center">
+                                                ${isLowest ? '<i class="fas fa-crown text-orange-400 mr-1.5 scale-75"></i>' : ''}
+                                                ${c.location}
+                                            </div>
+                                            <div class="text-[9px] text-gray-400 font-normal ml-${isLowest ? '4' : '0'}">${c.date}</div>
                                         </td>
                                         <td class="px-2 py-4">
                                             <div class="text-gray-700 font-medium">$${c.price} / ${c.rawQuantity}${UNIT_OPTIONS.find(u => u.v === c.rawUnit)?.n || c.rawUnit}</div>
                                             ${c.note ? `<div class="text-[10px] text-orange-500 mt-0.5"><i class="fas fa-sticky-note mr-1 scale-75"></i>${c.note}</div>` : ''}
                                         </td>
                                         <td class="px-6 py-4 text-right">
-                                            <span class="px-2 py-1 rounded-lg font-bold ${c.standardPrice === lowest && p.prices.length > 1 ? 'bg-orange-100 text-orange-600' : 'bg-teal-50 text-teal-600'}">
+                                            <span class="px-2 py-1 rounded-lg font-bold ${isLowest ? 'bg-orange-100 text-orange-600 ring-1 ring-orange-200' : 'bg-teal-50 text-teal-600'}">
                                                 $${c.standardPrice.toFixed(3)}/${c.standardUnitLabel}
                                             </span>
                                         </td>
                                     </tr>
-                                `).join('')}
+                                    `;
+                                }).join('')}
                             </tbody>
                         </table>
                     </div>
@@ -253,6 +280,7 @@
             return filtered.length;
         }
 
+        // 開啟編輯對話框
         function openEditCase(pid, cid) {
             const p = products.find(x => x.id === pid);
             const c = p.prices.find(x => x.id === cid);
@@ -296,7 +324,6 @@
                 c.rawUnit = document.getElementById('e-unit').value;
                 c.note = document.getElementById('e-note').value.trim();
                 
-                // 重新計算標準單價
                 const { stdPrice, stdUnit } = calculateStandard(c.price, c.rawQuantity, c.rawUnit);
                 c.standardPrice = stdPrice;
                 c.standardUnitLabel = stdUnit;
@@ -352,14 +379,15 @@
                         "單位": c.rawUnit,
                         "備註": c.note || "",
                         "標準單價": c.standardPrice.toFixed(4),
-                        "日期": c.date
+                        "日期": c.date,
+                        "App版本": APP_VERSION
                     });
                 });
             });
             const ws = XLSX.utils.json_to_sheet(data);
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "PriceData");
-            XLSX.writeFile(wb, `價格追蹤_${new Date().toISOString().split('T')[0]}.xlsx`);
+            XLSX.writeFile(wb, `價格追蹤_${APP_VERSION}_${new Date().toISOString().split('T')[0]}.xlsx`);
         }
 
         function importFromExcel(e) {
