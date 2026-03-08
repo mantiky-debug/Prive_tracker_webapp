@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>價格追蹤小幫手 V1.3</title>
+    <title>價格追蹤小幫手 V1.4</title>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
@@ -28,13 +28,15 @@
             border-bottom: 1px solid rgba(0,0,0,0.05);
         }
 
-        .price-row-top { background-color: rgba(255, 237, 213, 0.3); }
-        
         #calcDrawer {
             transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .drawer-hidden { transform: translateY(100%); }
         .drawer-visible { transform: translateY(0); }
+
+        .progress-bar {
+            transition: width 0.5s ease-out;
+        }
     </style>
 </head>
 <body class="pb-24">
@@ -49,7 +51,6 @@
                 <button onclick="toggleCalc()" class="bg-orange-500 hover:bg-orange-600 px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center">
                     <i class="fas fa-calculator mr-1"></i> 計算機
                 </button>
-                <!-- 恢復匯入/匯出按鈕 -->
                 <div class="flex bg-white/10 rounded-lg overflow-hidden border border-white/20">
                     <button onclick="exportToExcel()" class="px-2.5 py-1.5 hover:bg-white/10 text-[10px] font-bold border-r border-white/20">匯出</button>
                     <label class="px-2.5 py-1.5 hover:bg-white/10 text-[10px] font-bold cursor-pointer">
@@ -67,7 +68,7 @@
             <div class="flex items-center gap-2 bg-white p-1.5 rounded-2xl shadow-lg border border-gray-100">
                 <div class="pl-3 text-gray-400"><i id="searchIcon" class="fas fa-search"></i></div>
                 <input type="text" id="smartInput" oninput="handleSmartInput()" placeholder="搜尋或輸入新產品..." 
-                    class="flex-1 p-2.5 bg-transparent border-none focus:ring-0 text-gray-700 font-medium outline-none">
+                    class="flex-1 p-2.5 bg-transparent border-none focus:ring-0 text-gray-700 font-medium outline-none text-sm md:text-base">
                 <button id="actionBtn" onclick="handleAction()" class="p-2.5 px-6 rounded-xl font-bold btn-bounce transition-all text-sm bg-gray-100 text-gray-400">
                     <span id="btnText">搜尋</span>
                 </button>
@@ -85,14 +86,14 @@
 
         <div class="mt-12 mb-6 text-center">
             <div class="inline-block px-4 py-1.5 bg-gray-200 text-gray-500 text-[10px] font-bold rounded-full tracking-widest uppercase">
-                Version 1.3 - 計算機品項優化版
+                Version 1.4 - 數量乘法與滿額達標版
             </div>
             <p class="text-[9px] text-gray-400 mt-2">© 2024 Price Tracker Helper</p>
         </div>
     </main>
 
     <!-- 購物計算機抽屜 -->
-    <div id="calcDrawer" class="fixed inset-x-0 bottom-0 z-[60] bg-white rounded-t-[2.5rem] shadow-[0_-10px_40px_rgba(0,0,0,0.1)] border-t border-gray-100 drawer-hidden h-[85vh] flex flex-col">
+    <div id="calcDrawer" class="fixed inset-x-0 bottom-0 z-[60] bg-white rounded-t-[2.5rem] shadow-[0_-10px_40px_rgba(0,0,0,0.1)] border-t border-gray-100 drawer-hidden h-[90vh] flex flex-col">
         <div class="w-full flex justify-center pt-3 pb-2 cursor-pointer" onclick="toggleCalc()">
             <div class="w-12 h-1.5 bg-gray-200 rounded-full"></div>
         </div>
@@ -103,21 +104,45 @@
         </div>
 
         <div class="flex-1 overflow-y-auto p-6 no-scrollbar">
-            <!-- 輸入區域：加入品項名稱欄位 -->
-            <div class="bg-orange-50 rounded-2xl p-4 mb-6 space-y-3">
-                <div class="grid grid-cols-2 gap-2">
-                    <div class="col-span-1">
+            <!-- 輸入區域：加入數量欄位 -->
+            <div class="bg-orange-50 rounded-2xl p-4 mb-4 space-y-3">
+                <div class="grid grid-cols-12 gap-2">
+                    <div class="col-span-5">
                         <label class="text-[10px] text-orange-400 font-bold ml-1 uppercase">品項名稱</label>
-                        <input type="text" id="calcItemName" placeholder="例如：雞蛋" class="w-full p-3 bg-white rounded-xl border-none outline-none focus:ring-2 focus:ring-orange-300 text-sm">
+                        <input type="text" id="calcItemName" placeholder="例如：雞蛋" class="w-full p-3 bg-white rounded-xl border-none outline-none focus:ring-2 focus:ring-orange-300 text-xs">
                     </div>
-                    <div class="col-span-1">
-                        <label class="text-[10px] text-orange-400 font-bold ml-1 uppercase">金額</label>
-                        <input type="number" id="calcAmount" placeholder="0.00" class="w-full p-3 bg-white rounded-xl border-none outline-none focus:ring-2 focus:ring-orange-300 text-sm font-bold">
+                    <div class="col-span-4">
+                        <label class="text-[10px] text-orange-400 font-bold ml-1 uppercase">單價</label>
+                        <input type="number" id="calcAmount" placeholder="0.00" class="w-full p-3 bg-white rounded-xl border-none outline-none focus:ring-2 focus:ring-orange-300 text-xs font-bold">
+                    </div>
+                    <div class="col-span-3">
+                        <label class="text-[10px] text-orange-400 font-bold ml-1 uppercase">數量</label>
+                        <input type="number" id="calcQty" value="1" min="1" class="w-full p-3 bg-white rounded-xl border-none outline-none focus:ring-2 focus:ring-orange-300 text-xs font-bold text-center">
                     </div>
                 </div>
                 <button onclick="addToCalc()" class="w-full py-3 bg-orange-500 text-white rounded-xl font-bold shadow-lg shadow-orange-100 btn-bounce text-sm">
                     <i class="fas fa-plus mr-1"></i> 加入清單
                 </button>
+            </div>
+
+            <!-- 滿額目標進度條 -->
+            <div class="mb-6 px-1">
+                <div class="flex justify-between items-end mb-2">
+                    <div class="flex flex-col">
+                        <span class="text-[10px] text-gray-400 font-bold uppercase">滿額目標</span>
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs text-gray-400">$</span>
+                            <input type="number" id="targetAmount" oninput="updateCalcTotal()" placeholder="輸入目標金額" class="w-20 bg-transparent border-b border-dashed border-gray-300 text-sm font-bold text-gray-700 outline-none">
+                        </div>
+                    </div>
+                    <div id="targetStatus" class="text-right">
+                        <span class="text-[10px] text-gray-400 block uppercase">還差</span>
+                        <span id="remainingAmount" class="text-sm font-black text-orange-500">$0.00</span>
+                    </div>
+                </div>
+                <div class="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div id="targetProgressBar" class="progress-bar h-full bg-teal-500 w-0"></div>
+                </div>
             </div>
 
             <div id="calcList" class="space-y-3 mb-8"></div>
@@ -127,13 +152,13 @@
         <div class="p-6 bg-gray-50 border-t border-gray-100 pb-10">
             <div class="flex items-center justify-between mb-4">
                 <div class="flex items-center gap-2">
-                    <span class="text-xs font-medium text-gray-500">信用卡優惠/折扣:</span>
+                    <span class="text-xs font-medium text-gray-500">折扣:</span>
                     <select id="calcDiscount" onchange="updateCalcTotal()" class="bg-white border-none rounded-lg text-xs font-bold p-1 px-2 focus:ring-1 focus:ring-orange-300">
                         <option value="1">無折扣</option>
-                        <option value="0.95">95 折 (5% Off)</option>
-                        <option value="0.9">9 折 (10% Off)</option>
-                        <option value="0.85">85 折 (15% Off)</option>
-                        <option value="0.8">8 折 (20% Off)</option>
+                        <option value="0.95">95 折</option>
+                        <option value="0.9">9 折</option>
+                        <option value="0.85">85 折</option>
+                        <option value="0.8">8 折</option>
                         <option value="custom">自定義 %</option>
                     </select>
                 </div>
@@ -156,7 +181,7 @@
         </div>
     </div>
 
-    <!-- 彈出式編輯視窗 (Modal) -->
+    <!-- 彈出式編輯視窗 (Modal) 同前 -->
     <div id="editModal" class="fixed inset-0 bg-black/60 z-[100] hidden items-center justify-center p-4 backdrop-blur-sm">
         <div class="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl">
             <h3 id="modalTitle" class="text-lg font-bold text-gray-800 mb-4">編輯</h3>
@@ -169,7 +194,7 @@
     </div>
 
     <script>
-        const APP_VERSION = "V1.3";
+        const APP_VERSION = "V1.4";
         let products = JSON.parse(localStorage.getItem('priceTracker_v8') || '[]');
         let cartItems = [];
 
@@ -192,14 +217,25 @@
         function addToCalc() {
             const nameInput = document.getElementById('calcItemName');
             const amountInput = document.getElementById('calcAmount');
+            const qtyInput = document.getElementById('calcQty');
+            
             const amount = parseFloat(amountInput.value);
+            const qty = parseInt(qtyInput.value) || 1;
             const name = nameInput.value.trim() || "未命名品項";
 
             if (!amount || amount <= 0) return;
 
-            cartItems.push({ id: Date.now(), name: name, amount: amount });
+            cartItems.push({ 
+                id: Date.now(), 
+                name: name, 
+                price: amount,
+                qty: qty,
+                total: amount * qty 
+            });
+
             nameInput.value = "";
             amountInput.value = "";
+            qtyInput.value = "1";
             renderCalc();
         }
 
@@ -220,12 +256,18 @@
                         <span class="w-6 h-6 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-[10px] font-bold">${idx + 1}</span>
                         <div>
                             <div class="text-[10px] text-gray-400 leading-tight">${item.name}</div>
-                            <div class="font-bold text-gray-700">$${item.amount.toFixed(2)}</div>
+                            <div class="font-bold text-gray-700">
+                                $${item.price.toFixed(2)} <span class="text-[10px] text-gray-300 mx-1">x</span> ${item.qty}
+                            </div>
                         </div>
                     </div>
-                    <button onclick="removeFromCalc(${item.id})" class="text-gray-300 hover:text-red-400 p-1"><i class="fas fa-times"></i></button>
+                    <div class="flex items-center gap-4">
+                        <span class="text-sm font-black text-gray-800">$${item.total.toFixed(2)}</span>
+                        <button onclick="removeFromCalc(${item.id})" class="text-gray-300 hover:text-red-400 p-1"><i class="fas fa-times"></i></button>
+                    </div>
                 </div>
             `).join('');
+            
             if (cartItems.length === 0) {
                 list.innerHTML = `<p class="text-center text-gray-400 py-10 text-xs">購物清單是空的</p>`;
             }
@@ -233,11 +275,12 @@
         }
 
         function updateCalcTotal() {
-            const subtotal = cartItems.reduce((acc, cur) => acc + cur.amount, 0);
+            const subtotal = cartItems.reduce((acc, cur) => acc + cur.total, 0);
             const discountSelect = document.getElementById('calcDiscount');
             const customBox = document.getElementById('customDiscountBox');
             let multiplier = 1;
 
+            // 折扣邏輯
             if (discountSelect.value === 'custom') {
                 customBox.classList.remove('hidden');
                 const customVal = parseFloat(document.getElementById('customDiscountVal').value) || 100;
@@ -250,9 +293,33 @@
             const finalTotal = subtotal * multiplier;
             document.getElementById('calcSubtotal').innerText = `$${subtotal.toFixed(2)}`;
             document.getElementById('calcFinalTotal').innerText = `$${finalTotal.toFixed(2)}`;
+
+            // 滿額進度邏輯
+            const target = parseFloat(document.getElementById('targetAmount').value) || 0;
+            const progressBar = document.getElementById('targetProgressBar');
+            const remainingSpan = document.getElementById('remainingAmount');
+
+            if (target > 0) {
+                const diff = target - subtotal;
+                const percent = Math.min((subtotal / target) * 100, 100);
+                progressBar.style.width = `${percent}%`;
+                
+                if (diff > 0) {
+                    remainingSpan.innerText = `$${diff.toFixed(2)}`;
+                    remainingSpan.className = "text-sm font-black text-orange-500";
+                    progressBar.className = "progress-bar h-full bg-teal-500";
+                } else {
+                    remainingSpan.innerText = "已達標！";
+                    remainingSpan.className = "text-sm font-black text-teal-600";
+                    progressBar.className = "progress-bar h-full bg-teal-600";
+                }
+            } else {
+                progressBar.style.width = `0%`;
+                remainingSpan.innerText = `$0.00`;
+            }
         }
 
-        // --- 核心功能 ---
+        // --- 核心追蹤功能 (保持 V1.3 邏輯) ---
         function calculateStandard(price, qty, unit) {
             let stdPrice = 0, stdUnit = 'pc';
             const p = parseFloat(price) || 0;
@@ -338,7 +405,7 @@
                                 ${sortedPrices.map(c => {
                                     const isLowest = c.standardPrice === lowest && p.prices.length > 1;
                                     return `
-                                    <tr onclick="openEditCase(${p.id}, ${c.id})" class="hover:bg-teal-50/30 cursor-pointer ${isLowest ? 'price-row-top' : ''}">
+                                    <tr onclick="openEditCase(${p.id}, ${c.id})" class="hover:bg-teal-50/30 cursor-pointer ${isLowest ? 'bg-orange-50/30' : ''}">
                                         <td class="px-6 py-4 font-medium text-gray-600">
                                             <div class="flex items-center">
                                                 ${isLowest ? '<i class="fas fa-crown text-orange-400 mr-1.5 scale-75"></i>' : ''}
