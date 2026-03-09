@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>價格追蹤小幫手 V1.4</title>
+    <title>價格追蹤小幫手 V1.5</title>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
@@ -37,6 +37,11 @@
         .progress-bar {
             transition: width 0.5s ease-out;
         }
+
+        /* 加大輸入框文字 */
+        input, select {
+            font-size: 16px !important; /* 避免 iOS 自動放大 */
+        }
     </style>
 </head>
 <body class="pb-24">
@@ -44,16 +49,16 @@
     <!-- 頂部導航 -->
     <header class="bg-teal-700 text-white h-16 sticky top-0 z-50 shadow-md flex items-center">
         <div class="container mx-auto px-4 flex justify-between items-center">
-            <h1 class="text-lg font-bold flex items-center">
+            <h1 class="text-xl font-bold flex items-center">
                 <i class="fas fa-tags mr-2 text-teal-300"></i> 價格追蹤
             </h1>
-            <div class="flex gap-1.5">
-                <button onclick="toggleCalc()" class="bg-orange-500 hover:bg-orange-600 px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center">
+            <div class="flex gap-2">
+                <button onclick="toggleCalc()" class="bg-orange-500 hover:bg-orange-600 px-4 py-2 rounded-xl text-sm font-black transition-all shadow-lg flex items-center btn-bounce">
                     <i class="fas fa-calculator mr-1"></i> 計算機
                 </button>
-                <div class="flex bg-white/10 rounded-lg overflow-hidden border border-white/20">
-                    <button onclick="exportToExcel()" class="px-2.5 py-1.5 hover:bg-white/10 text-[10px] font-bold border-r border-white/20">匯出</button>
-                    <label class="px-2.5 py-1.5 hover:bg-white/10 text-[10px] font-bold cursor-pointer">
+                <div class="flex bg-white/10 rounded-xl overflow-hidden border border-white/20">
+                    <button onclick="exportToExcel()" class="px-3 py-2 hover:bg-white/10 text-[11px] font-bold border-r border-white/20">匯出</button>
+                    <label class="px-3 py-2 hover:bg-white/10 text-[11px] font-bold cursor-pointer">
                         匯入
                         <input type="file" class="hidden" accept=".xlsx, .xls" onchange="importFromExcel(event)">
                     </label>
@@ -65,10 +70,10 @@
     <main class="container mx-auto max-w-2xl">
         <!-- 搜尋與快速新增 -->
         <div class="sticky-search px-4 py-4">
-            <div class="flex items-center gap-2 bg-white p-1.5 rounded-2xl shadow-lg border border-gray-100">
+            <div class="flex items-center gap-2 bg-white p-2 rounded-2xl shadow-lg border border-gray-100">
                 <div class="pl-3 text-gray-400"><i id="searchIcon" class="fas fa-search"></i></div>
                 <input type="text" id="smartInput" oninput="handleSmartInput()" placeholder="搜尋或輸入新產品..." 
-                    class="flex-1 p-2.5 bg-transparent border-none focus:ring-0 text-gray-700 font-medium outline-none text-sm md:text-base">
+                    class="flex-1 p-2.5 bg-transparent border-none focus:ring-0 text-gray-700 font-bold outline-none text-base">
                 <button id="actionBtn" onclick="handleAction()" class="p-2.5 px-6 rounded-xl font-bold btn-bounce transition-all text-sm bg-gray-100 text-gray-400">
                     <span id="btnText">搜尋</span>
                 </button>
@@ -81,80 +86,80 @@
             <div class="bg-gray-200/50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
                 <i class="fas fa-search text-gray-400 text-2xl"></i>
             </div>
-            <p class="text-gray-500 font-medium">無資料</p>
+            <p class="text-gray-500 font-medium text-lg">無資料</p>
         </div>
 
         <div class="mt-12 mb-6 text-center">
             <div class="inline-block px-4 py-1.5 bg-gray-200 text-gray-500 text-[10px] font-bold rounded-full tracking-widest uppercase">
-                Version 1.4 - 數量乘法與滿額達標版
+                Version 1.5 - 字體強化 & 滿額目標
             </div>
             <p class="text-[9px] text-gray-400 mt-2">© 2024 Price Tracker Helper</p>
         </div>
     </main>
 
     <!-- 購物計算機抽屜 -->
-    <div id="calcDrawer" class="fixed inset-x-0 bottom-0 z-[60] bg-white rounded-t-[2.5rem] shadow-[0_-10px_40px_rgba(0,0,0,0.1)] border-t border-gray-100 drawer-hidden h-[90vh] flex flex-col">
-        <div class="w-full flex justify-center pt-3 pb-2 cursor-pointer" onclick="toggleCalc()">
-            <div class="w-12 h-1.5 bg-gray-200 rounded-full"></div>
+    <div id="calcDrawer" class="fixed inset-x-0 bottom-0 z-[60] bg-white rounded-t-[2.5rem] shadow-[0_-10px_40px_rgba(0,0,0,0.15)] border-t border-gray-100 drawer-hidden h-[92vh] flex flex-col">
+        <div class="w-full flex justify-center pt-4 pb-2 cursor-pointer" onclick="toggleCalc()">
+            <div class="w-16 h-2 bg-gray-200 rounded-full"></div>
         </div>
         
-        <div class="px-6 py-2 flex justify-between items-center border-b border-gray-50">
-            <h2 class="text-xl font-bold text-gray-800"><i class="fas fa-shopping-cart mr-2 text-orange-500"></i>購物清單</h2>
-            <button onclick="clearCalc()" class="text-red-400 text-xs font-bold">清空全部</button>
+        <div class="px-6 py-3 flex justify-between items-center border-b border-gray-50">
+            <h2 class="text-2xl font-black text-gray-800"><i class="fas fa-shopping-cart mr-2 text-orange-500"></i>購物清單</h2>
+            <button onclick="clearCalc()" class="text-red-500 text-sm font-bold bg-red-50 px-3 py-1 rounded-lg">清空全部</button>
         </div>
 
         <div class="flex-1 overflow-y-auto p-6 no-scrollbar">
-            <!-- 輸入區域：加入數量欄位 -->
-            <div class="bg-orange-50 rounded-2xl p-4 mb-4 space-y-3">
-                <div class="grid grid-cols-12 gap-2">
+            <!-- 輸入區域：字體加大版 -->
+            <div class="bg-orange-50 rounded-3xl p-5 mb-6 shadow-inner space-y-4">
+                <div class="grid grid-cols-12 gap-3">
+                    <div class="col-span-12">
+                        <label class="text-[12px] text-orange-400 font-black ml-1 uppercase mb-1 block">品項名稱</label>
+                        <input type="text" id="calcItemName" placeholder="例如：雞蛋" class="w-full p-4 bg-white rounded-2xl border-2 border-orange-100 outline-none focus:border-orange-400 text-base font-bold">
+                    </div>
+                    <div class="col-span-7">
+                        <label class="text-[12px] text-orange-400 font-black ml-1 uppercase mb-1 block">單價 ($)</label>
+                        <input type="number" id="calcAmount" placeholder="0.00" class="w-full p-4 bg-white rounded-2xl border-2 border-orange-100 outline-none focus:border-orange-400 text-lg font-black text-orange-600">
+                    </div>
                     <div class="col-span-5">
-                        <label class="text-[10px] text-orange-400 font-bold ml-1 uppercase">品項名稱</label>
-                        <input type="text" id="calcItemName" placeholder="例如：雞蛋" class="w-full p-3 bg-white rounded-xl border-none outline-none focus:ring-2 focus:ring-orange-300 text-xs">
-                    </div>
-                    <div class="col-span-4">
-                        <label class="text-[10px] text-orange-400 font-bold ml-1 uppercase">單價</label>
-                        <input type="number" id="calcAmount" placeholder="0.00" class="w-full p-3 bg-white rounded-xl border-none outline-none focus:ring-2 focus:ring-orange-300 text-xs font-bold">
-                    </div>
-                    <div class="col-span-3">
-                        <label class="text-[10px] text-orange-400 font-bold ml-1 uppercase">數量</label>
-                        <input type="number" id="calcQty" value="1" min="1" class="w-full p-3 bg-white rounded-xl border-none outline-none focus:ring-2 focus:ring-orange-300 text-xs font-bold text-center">
+                        <label class="text-[12px] text-orange-400 font-black ml-1 uppercase mb-1 block">數量</label>
+                        <input type="number" id="calcQty" value="1" min="1" class="w-full p-4 bg-white rounded-2xl border-2 border-orange-100 outline-none focus:border-orange-400 text-lg font-black text-center">
                     </div>
                 </div>
-                <button onclick="addToCalc()" class="w-full py-3 bg-orange-500 text-white rounded-xl font-bold shadow-lg shadow-orange-100 btn-bounce text-sm">
-                    <i class="fas fa-plus mr-1"></i> 加入清單
+                <button onclick="addToCalc()" class="w-full py-4 bg-orange-500 text-white rounded-2xl font-black shadow-lg shadow-orange-200 btn-bounce text-lg flex items-center justify-center gap-2">
+                    <i class="fas fa-plus-circle"></i> 加入購物清單
                 </button>
             </div>
 
-            <!-- 滿額目標進度條 -->
-            <div class="mb-6 px-1">
-                <div class="flex justify-between items-end mb-2">
+            <!-- 滿額目標進度條 (優化間距與大小) -->
+            <div class="mb-8 px-2">
+                <div class="flex justify-between items-end mb-3">
                     <div class="flex flex-col">
-                        <span class="text-[10px] text-gray-400 font-bold uppercase">滿額目標</span>
-                        <div class="flex items-center gap-2">
-                            <span class="text-xs text-gray-400">$</span>
-                            <input type="number" id="targetAmount" oninput="updateCalcTotal()" placeholder="輸入目標金額" class="w-20 bg-transparent border-b border-dashed border-gray-300 text-sm font-bold text-gray-700 outline-none">
+                        <span class="text-[12px] text-gray-400 font-black uppercase tracking-wider">滿額折扣目標</span>
+                        <div class="flex items-center gap-2 mt-1">
+                            <span class="text-lg font-bold text-gray-400">$</span>
+                            <input type="number" id="targetAmount" oninput="updateCalcTotal()" placeholder="輸入目標" class="w-24 bg-transparent border-b-2 border-dashed border-gray-300 text-xl font-black text-gray-800 outline-none focus:border-teal-500 transition-colors">
                         </div>
                     </div>
                     <div id="targetStatus" class="text-right">
-                        <span class="text-[10px] text-gray-400 block uppercase">還差</span>
-                        <span id="remainingAmount" class="text-sm font-black text-orange-500">$0.00</span>
+                        <span class="text-[11px] text-gray-400 block font-bold uppercase mb-1">差額 / 進度</span>
+                        <span id="remainingAmount" class="text-xl font-black text-orange-500">$0.00</span>
                     </div>
                 </div>
-                <div class="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                <div class="w-full h-4 bg-gray-100 rounded-full overflow-hidden shadow-inner">
                     <div id="targetProgressBar" class="progress-bar h-full bg-teal-500 w-0"></div>
                 </div>
             </div>
 
-            <div id="calcList" class="space-y-3 mb-8"></div>
+            <div id="calcList" class="space-y-4 mb-8"></div>
         </div>
 
-        <!-- 底部總結 -->
-        <div class="p-6 bg-gray-50 border-t border-gray-100 pb-10">
-            <div class="flex items-center justify-between mb-4">
-                <div class="flex items-center gap-2">
-                    <span class="text-xs font-medium text-gray-500">折扣:</span>
-                    <select id="calcDiscount" onchange="updateCalcTotal()" class="bg-white border-none rounded-lg text-xs font-bold p-1 px-2 focus:ring-1 focus:ring-orange-300">
-                        <option value="1">無折扣</option>
+        <!-- 底部總結：極大化顯示 -->
+        <div class="p-6 bg-gray-50 border-t border-gray-100 pb-12 shadow-[0_-5px_20px_rgba(0,0,0,0.03)]">
+            <div class="flex items-center justify-between mb-5">
+                <div class="flex items-center gap-3">
+                    <span class="text-sm font-bold text-gray-500">選擇折扣:</span>
+                    <select id="calcDiscount" onchange="updateCalcTotal()" class="bg-white border-2 border-gray-200 rounded-xl text-sm font-black p-2 px-3 focus:border-orange-400 outline-none">
+                        <option value="1">無折扣 (100%)</option>
                         <option value="0.95">95 折</option>
                         <option value="0.9">9 折</option>
                         <option value="0.85">85 折</option>
@@ -162,39 +167,44 @@
                         <option value="custom">自定義 %</option>
                     </select>
                 </div>
-                <div id="customDiscountBox" class="hidden">
-                    <input type="number" id="customDiscountVal" oninput="updateCalcTotal()" placeholder="92" class="w-12 p-1 text-center bg-white rounded-lg text-xs border-none outline-none focus:ring-1 focus:ring-orange-300"> <span class="text-[10px]">%</span>
+                <div id="customDiscountBox" class="hidden flex items-center gap-2">
+                    <input type="number" id="customDiscountVal" oninput="updateCalcTotal()" placeholder="92" class="w-16 p-2 text-center bg-white rounded-xl text-sm font-black border-2 border-orange-200 outline-none">
+                    <span class="text-sm font-bold text-gray-400">%</span>
                 </div>
             </div>
 
-            <div class="space-y-1">
-                <div class="flex justify-between text-gray-400 text-[10px]">
-                    <span>原始總計</span>
-                    <span id="calcSubtotal">$0.00</span>
+            <div class="space-y-2">
+                <div class="flex justify-between items-center text-gray-400">
+                    <span class="text-xs font-bold uppercase tracking-widest">原始小計 (Subtotal)</span>
+                    <span id="calcSubtotal" class="font-bold text-base">$0.00</span>
                 </div>
-                <div class="flex justify-between items-end">
-                    <span class="text-gray-800 font-bold text-sm">折後應付金額</span>
-                    <span id="calcFinalTotal" class="text-2xl font-black text-orange-600">$0.00</span>
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-800 font-black text-lg">折後應付總額</span>
+                    <div class="text-right">
+                        <span id="calcFinalTotal" class="text-4xl font-black text-orange-600 block">$0.00</span>
+                    </div>
                 </div>
             </div>
-            <button onclick="toggleCalc()" class="w-full mt-4 py-3 bg-gray-800 text-white rounded-2xl font-bold btn-bounce">返回追蹤清單</button>
+            <button onclick="toggleCalc()" class="w-full mt-6 py-4 bg-gray-900 text-white rounded-2xl font-black text-lg shadow-xl btn-bounce">
+                完成計算並返回
+            </button>
         </div>
     </div>
 
-    <!-- 彈出式編輯視窗 (Modal) 同前 -->
+    <!-- 彈出式編輯視窗 (Modal) -->
     <div id="editModal" class="fixed inset-0 bg-black/60 z-[100] hidden items-center justify-center p-4 backdrop-blur-sm">
-        <div class="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl">
-            <h3 id="modalTitle" class="text-lg font-bold text-gray-800 mb-4">編輯</h3>
-            <div id="modalBody" class="space-y-4"></div>
-            <div class="flex gap-3 mt-6">
-                <button onclick="closeModal()" class="flex-1 py-3 rounded-xl font-bold bg-gray-100 text-gray-500">取消</button>
-                <button id="modalConfirmBtn" class="flex-1 py-3 rounded-xl font-bold bg-teal-600 text-white">確認</button>
+        <div class="bg-white rounded-[2.5rem] w-full max-w-sm p-8 shadow-2xl">
+            <h3 id="modalTitle" class="text-xl font-black text-gray-800 mb-6">編輯資料</h3>
+            <div id="modalBody" class="space-y-5"></div>
+            <div class="flex gap-4 mt-8">
+                <button onclick="closeModal()" class="flex-1 py-4 rounded-2xl font-black bg-gray-100 text-gray-500">取消</button>
+                <button id="modalConfirmBtn" class="flex-1 py-4 rounded-2xl font-black bg-teal-600 text-white shadow-lg shadow-teal-100">確認修改</button>
             </div>
         </div>
     </div>
 
     <script>
-        const APP_VERSION = "V1.4";
+        const APP_VERSION = "V1.5";
         let products = JSON.parse(localStorage.getItem('priceTracker_v8') || '[]');
         let cartItems = [];
 
@@ -251,25 +261,30 @@
         function renderCalc() {
             const list = document.getElementById('calcList');
             list.innerHTML = cartItems.map((item, idx) => `
-                <div class="flex justify-between items-center bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
-                    <div class="flex items-center gap-3">
-                        <span class="w-6 h-6 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-[10px] font-bold">${idx + 1}</span>
+                <div class="flex justify-between items-center bg-white p-4 rounded-2xl border-2 border-gray-50 shadow-sm">
+                    <div class="flex items-center gap-4">
+                        <span class="w-8 h-8 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-xs font-black">${idx + 1}</span>
                         <div>
-                            <div class="text-[10px] text-gray-400 leading-tight">${item.name}</div>
-                            <div class="font-bold text-gray-700">
-                                $${item.price.toFixed(2)} <span class="text-[10px] text-gray-300 mx-1">x</span> ${item.qty}
+                            <div class="text-xs text-gray-400 font-bold mb-0.5">${item.name}</div>
+                            <div class="font-black text-gray-800 text-base">
+                                $${item.price.toFixed(2)} <span class="text-xs text-gray-300 mx-1 font-normal">x</span> ${item.qty}
                             </div>
                         </div>
                     </div>
                     <div class="flex items-center gap-4">
-                        <span class="text-sm font-black text-gray-800">$${item.total.toFixed(2)}</span>
-                        <button onclick="removeFromCalc(${item.id})" class="text-gray-300 hover:text-red-400 p-1"><i class="fas fa-times"></i></button>
+                        <span class="text-xl font-black text-gray-900">$${item.total.toFixed(2)}</span>
+                        <button onclick="removeFromCalc(${item.id})" class="text-gray-300 hover:text-red-500 p-2"><i class="fas fa-trash-alt"></i></button>
                     </div>
                 </div>
             `).join('');
             
             if (cartItems.length === 0) {
-                list.innerHTML = `<p class="text-center text-gray-400 py-10 text-xs">購物清單是空的</p>`;
+                list.innerHTML = `
+                    <div class="text-center py-16">
+                        <i class="fas fa-cart-arrow-down text-gray-200 text-5xl mb-4"></i>
+                        <p class="text-gray-400 font-bold text-sm">購物清單是空的<br>請在上方輸入金額</p>
+                    </div>
+                `;
             }
             updateCalcTotal();
         }
@@ -280,7 +295,6 @@
             const customBox = document.getElementById('customDiscountBox');
             let multiplier = 1;
 
-            // 折扣邏輯
             if (discountSelect.value === 'custom') {
                 customBox.classList.remove('hidden');
                 const customVal = parseFloat(document.getElementById('customDiscountVal').value) || 100;
@@ -294,7 +308,7 @@
             document.getElementById('calcSubtotal').innerText = `$${subtotal.toFixed(2)}`;
             document.getElementById('calcFinalTotal').innerText = `$${finalTotal.toFixed(2)}`;
 
-            // 滿額進度邏輯
+            // 滿額進度
             const target = parseFloat(document.getElementById('targetAmount').value) || 0;
             const progressBar = document.getElementById('targetProgressBar');
             const remainingSpan = document.getElementById('remainingAmount');
@@ -306,12 +320,12 @@
                 
                 if (diff > 0) {
                     remainingSpan.innerText = `$${diff.toFixed(2)}`;
-                    remainingSpan.className = "text-sm font-black text-orange-500";
+                    remainingSpan.className = "text-xl font-black text-orange-500";
                     progressBar.className = "progress-bar h-full bg-teal-500";
                 } else {
                     remainingSpan.innerText = "已達標！";
-                    remainingSpan.className = "text-sm font-black text-teal-600";
-                    progressBar.className = "progress-bar h-full bg-teal-600";
+                    remainingSpan.className = "text-xl font-black text-teal-600";
+                    progressBar.className = "progress-bar h-full bg-teal-600 shadow-[0_0_10px_rgba(20,184,166,0.5)]";
                 }
             } else {
                 progressBar.style.width = `0%`;
@@ -319,7 +333,7 @@
             }
         }
 
-        // --- 核心追蹤功能 (保持 V1.3 邏輯) ---
+        // --- 核心追蹤功能 (保持 V1.3/1.4 邏輯，字體稍作優化) ---
         function calculateStandard(price, qty, unit) {
             let stdPrice = 0, stdUnit = 'pc';
             const p = parseFloat(price) || 0;
@@ -391,34 +405,34 @@
                 const lowest = p.prices.length ? Math.min(...p.prices.map(c => c.standardPrice)) : 0;
                 const sortedPrices = [...p.prices].sort((a, b) => a.standardPrice - b.standardPrice);
                 return `
-                <div class="bg-white rounded-[2rem] card-shadow border border-gray-100 overflow-hidden">
-                    <div class="px-6 py-4 flex justify-between items-center bg-gray-50/50 border-bottom border-gray-50">
+                <div class="bg-white rounded-[2rem] card-shadow border border-gray-100 overflow-hidden mb-6">
+                    <div class="px-6 py-5 flex justify-between items-center bg-gray-50/50 border-b border-gray-50">
                         <div onclick="editProductName(${p.id}, '${p.name}')" class="flex items-center gap-2 cursor-pointer group">
-                            <span class="font-bold text-gray-800 group-hover:text-teal-600 transition-colors">${p.name}</span>
+                            <span class="text-lg font-black text-gray-800 group-hover:text-teal-600 transition-colors">${p.name}</span>
                             <i class="fas fa-pen text-[10px] text-gray-300 group-hover:text-teal-400"></i>
                         </div>
-                        <button onclick="deleteProduct(${p.id})" class="text-gray-300 hover:text-red-400 p-2"><i class="fas fa-trash-alt text-xs"></i></button>
+                        <button onclick="deleteProduct(${p.id})" class="text-gray-300 hover:text-red-400 p-2"><i class="fas fa-trash-alt text-sm"></i></button>
                     </div>
-                    <div class="max-h-64 overflow-y-auto no-scrollbar">
-                        <table class="w-full text-xs">
+                    <div class="max-h-80 overflow-y-auto no-scrollbar">
+                        <table class="w-full text-sm">
                             <tbody class="divide-y divide-gray-50">
                                 ${sortedPrices.map(c => {
                                     const isLowest = c.standardPrice === lowest && p.prices.length > 1;
                                     return `
                                     <tr onclick="openEditCase(${p.id}, ${c.id})" class="hover:bg-teal-50/30 cursor-pointer ${isLowest ? 'bg-orange-50/30' : ''}">
-                                        <td class="px-6 py-4 font-medium text-gray-600">
+                                        <td class="px-6 py-4 font-bold text-gray-600">
                                             <div class="flex items-center">
-                                                ${isLowest ? '<i class="fas fa-crown text-orange-400 mr-1.5 scale-75"></i>' : ''}
+                                                ${isLowest ? '<i class="fas fa-crown text-orange-400 mr-2 scale-90"></i>' : ''}
                                                 ${c.location}
                                             </div>
-                                            <div class="text-[9px] text-gray-400 font-normal ml-${isLowest ? '4' : '0'}">${c.date}</div>
+                                            <div class="text-[10px] text-gray-400 font-medium ml-${isLowest ? '5' : '0'}">${c.date}</div>
                                         </td>
                                         <td class="px-2 py-4">
-                                            <div class="text-gray-700 font-medium">$${c.price} / ${c.rawQuantity}${UNIT_OPTIONS.find(u => u.v === c.rawUnit)?.n || c.rawUnit}</div>
-                                            ${c.note ? `<div class="text-[10px] text-orange-500 mt-0.5"><i class="fas fa-sticky-note mr-1 scale-75"></i>${c.note}</div>` : ''}
+                                            <div class="text-gray-800 font-black">$${c.price} <span class="text-[10px] font-normal text-gray-400">/ ${c.rawQuantity}${UNIT_OPTIONS.find(u => u.v === c.rawUnit)?.n || c.rawUnit}</span></div>
+                                            ${c.note ? `<div class="text-[11px] text-orange-500 mt-1 font-bold"><i class="fas fa-sticky-note mr-1 scale-75"></i>${c.note}</div>` : ''}
                                         </td>
                                         <td class="px-6 py-4 text-right">
-                                            <span class="px-2 py-1 rounded-lg font-bold ${isLowest ? 'bg-orange-100 text-orange-600 ring-1 ring-orange-200' : 'bg-teal-50 text-teal-600'}">
+                                            <span class="px-3 py-1.5 rounded-xl font-black ${isLowest ? 'bg-orange-100 text-orange-600 ring-2 ring-orange-200' : 'bg-teal-50 text-teal-600'}">
                                                 $${c.standardPrice.toFixed(3)}/${c.standardUnitLabel}
                                             </span>
                                         </td>
@@ -427,17 +441,18 @@
                             </tbody>
                         </table>
                     </div>
-                    <div class="p-5 bg-white border-t border-gray-100">
-                        <div class="grid grid-cols-4 gap-2 mb-2">
-                            <input type="text" id="new-loc-${p.id}" placeholder="地點" class="col-span-1 p-2.5 rounded-xl bg-gray-50 text-xs outline-none focus:ring-1 focus:ring-teal-500/20">
-                            <input type="number" id="new-price-${p.id}" placeholder="價格" class="col-span-1 p-2.5 rounded-xl bg-gray-50 text-xs outline-none focus:ring-1 focus:ring-teal-500/20">
-                            <input type="number" id="new-qty-${p.id}" placeholder="數量" class="col-span-1 p-2.5 rounded-xl bg-gray-50 text-xs outline-none focus:ring-1 focus:ring-teal-500/20">
-                            <select id="new-unit-${p.id}" class="col-span-1 p-2.5 rounded-xl bg-gray-50 text-xs outline-none border-none">
+                    <!-- 新增記錄區 -->
+                    <div class="p-6 bg-white border-t-4 border-gray-50">
+                        <div class="grid grid-cols-4 gap-3 mb-3">
+                            <input type="text" id="new-loc-${p.id}" placeholder="地點" class="col-span-1 p-3 rounded-xl bg-gray-100 text-sm font-bold outline-none focus:ring-2 focus:ring-teal-500/20">
+                            <input type="number" id="new-price-${p.id}" placeholder="價格" class="col-span-1 p-3 rounded-xl bg-gray-100 text-sm font-black outline-none focus:ring-2 focus:ring-teal-500/20">
+                            <input type="number" id="new-qty-${p.id}" placeholder="數量" class="col-span-1 p-3 rounded-xl bg-gray-100 text-sm font-black outline-none focus:ring-2 focus:ring-teal-500/20">
+                            <select id="new-unit-${p.id}" class="col-span-1 p-3 rounded-xl bg-gray-100 text-sm font-bold outline-none border-none">
                                 ${UNIT_OPTIONS.map(o => `<option value="${o.v}">${o.n}</option>`).join('')}
                             </select>
                         </div>
-                        <input type="text" id="new-note-${p.id}" placeholder="備註..." class="w-full p-2.5 text-xs rounded-xl bg-gray-50 outline-none mb-3 focus:ring-1 focus:ring-teal-500/20">
-                        <button onclick="addCase(${p.id})" class="w-full bg-teal-600 text-white font-bold py-3 rounded-2xl shadow-md btn-bounce text-sm">新增紀錄</button>
+                        <input type="text" id="new-note-${p.id}" placeholder="添加備註..." class="w-full p-3 text-sm font-bold rounded-xl bg-gray-100 outline-none mb-4 focus:ring-2 focus:ring-teal-500/20">
+                        <button onclick="addCase(${p.id})" class="w-full bg-teal-600 text-white font-black py-4 rounded-2xl shadow-lg btn-bounce text-base">新增價格紀錄</button>
                     </div>
                 </div>`;
             }).join('');
@@ -447,19 +462,34 @@
         function openEditCase(pid, cid) {
             const p = products.find(x => x.id === pid);
             const c = p.prices.find(x => x.id === cid);
-            document.getElementById('modalTitle').innerText = "編輯購物紀錄";
+            document.getElementById('modalTitle').innerText = "編輯記錄";
             document.getElementById('modalBody').innerHTML = `
-                <div class="space-y-4">
-                    <input type="text" id="e-loc" value="${c.location}" placeholder="地點" class="w-full p-3 bg-gray-50 rounded-xl outline-none text-sm">
-                    <div class="grid grid-cols-2 gap-3">
-                        <input type="number" id="e-price" value="${c.price}" placeholder="價格" class="w-full p-3 bg-gray-50 rounded-xl outline-none text-sm font-bold">
-                        <input type="number" id="e-qty" value="${c.rawQuantity}" placeholder="數量" class="w-full p-3 bg-gray-50 rounded-xl outline-none text-sm">
+                <div class="space-y-5">
+                    <div>
+                        <label class="text-xs font-black text-gray-400 uppercase mb-1 block">購買地點</label>
+                        <input type="text" id="e-loc" value="${c.location}" class="w-full p-4 bg-gray-50 rounded-2xl outline-none font-bold">
                     </div>
-                    <select id="e-unit" class="w-full p-3 bg-gray-50 rounded-xl outline-none text-sm">
-                        ${UNIT_OPTIONS.map(o => `<option value="${o.v}" ${c.rawUnit === o.v ? 'selected' : ''}>${o.n}</option>`).join('')}
-                    </select>
-                    <input type="text" id="e-note" value="${c.note || ''}" placeholder="備註" class="w-full p-3 bg-gray-50 rounded-xl outline-none text-sm">
-                    <button onclick="deleteCase(${pid}, ${cid})" class="w-full py-2 text-red-400 text-xs font-bold hover:bg-red-50 rounded-lg">刪除紀錄</button>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-xs font-black text-gray-400 uppercase mb-1 block">價格 ($)</label>
+                            <input type="number" id="e-price" value="${c.price}" class="w-full p-4 bg-gray-50 rounded-2xl outline-none font-black text-orange-600">
+                        </div>
+                        <div>
+                            <label class="text-xs font-black text-gray-400 uppercase mb-1 block">數量</label>
+                            <input type="number" id="e-qty" value="${c.rawQuantity}" class="w-full p-4 bg-gray-50 rounded-2xl outline-none font-black">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-xs font-black text-gray-400 uppercase mb-1 block">單位</label>
+                        <select id="e-unit" class="w-full p-4 bg-gray-50 rounded-2xl outline-none font-bold">
+                            ${UNIT_OPTIONS.map(o => `<option value="${o.v}" ${c.rawUnit === o.v ? 'selected' : ''}>${o.n}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-xs font-black text-gray-400 uppercase mb-1 block">備註</label>
+                        <input type="text" id="e-note" value="${c.note || ''}" class="w-full p-4 bg-gray-50 rounded-2xl outline-none font-bold text-sm">
+                    </div>
+                    <button onclick="deleteCase(${pid}, ${cid})" class="w-full py-3 text-red-500 font-black hover:bg-red-50 rounded-xl transition-colors">刪除此筆紀錄</button>
                 </div>`;
             const btn = document.getElementById('modalConfirmBtn');
             btn.onclick = () => {
@@ -477,7 +507,7 @@
 
         function editProductName(id, oldName) {
             document.getElementById('modalTitle').innerText = "修改產品名稱";
-            document.getElementById('modalBody').innerHTML = `<input type="text" id="editNameInput" value="${oldName}" class="w-full p-3 rounded-xl bg-gray-50 outline-none">`;
+            document.getElementById('modalBody').innerHTML = `<input type="text" id="editNameInput" value="${oldName}" class="w-full p-4 rounded-2xl bg-gray-50 outline-none font-black text-lg">`;
             const btn = document.getElementById('modalConfirmBtn');
             btn.onclick = () => {
                 const newName = document.getElementById('editNameInput').value.trim();
