@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>價格追蹤小幫手 V1.6</title>
+    <title>價格追蹤小幫手 V1.7</title>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
@@ -13,6 +13,7 @@
         body {
             font-family: 'Noto Sans TC', sans-serif;
             background-color: #f8fafc;
+            -webkit-tap-highlight-color: transparent;
         }
         .card-shadow { box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05), 0 8px 10px -6px rgba(0,0,0,0.05); }
         .no-scrollbar::-webkit-scrollbar { display: none; }
@@ -28,57 +29,77 @@
             transition: width 0.5s ease-out;
         }
 
-        /* 確保輸入框在手機上不會縮小 */
+        /* 確保輸入框在手機上不會縮小且字體足夠大防止自動放大 */
         input, select {
             font-size: 16px !important;
+        }
+
+        /* 強制固定定位在最上層 */
+        .sticky-nav {
+            position: sticky;
+            top: 0;
+            z-index: 50;
+        }
+        .sticky-search {
+            position: sticky;
+            top: 64px; /* 16rem = 64px (header height) */
+            z-index: 40;
         }
     </style>
 </head>
 <body class="pb-24">
 
     <!-- 頂部導航 -->
-    <header class="bg-teal-700 text-white h-16 sticky top-0 z-50 shadow-md flex items-center">
+    <header class="bg-teal-700 text-white h-16 sticky-nav shadow-md flex items-center">
         <div class="container mx-auto px-4 flex justify-between items-center">
             <h1 class="text-xl font-bold flex items-center">
                 <i class="fas fa-tags mr-2 text-teal-300"></i> 價格追蹤
             </h1>
-            <div class="flex gap-2">
-                <button onclick="toggleCalc()" class="bg-orange-500 px-4 py-2 rounded-xl text-sm font-black shadow-lg flex items-center btn-bounce">
+            <div class="flex items-center gap-1.5">
+                <button onclick="toggleCalc()" class="bg-orange-500 px-3 py-2 rounded-xl text-sm font-black shadow-lg flex items-center btn-bounce">
                     <i class="fas fa-calculator mr-1"></i> 計算機
                 </button>
-                <button onclick="exportToExcel()" class="bg-white/10 px-3 py-2 rounded-xl text-[11px] font-bold border border-white/20 hover:bg-white/20">匯出</button>
+                <div class="flex flex-col gap-1">
+                    <button onclick="exportToExcel()" class="bg-white/10 px-2 py-1 rounded-lg text-[10px] font-bold border border-white/20 hover:bg-white/20">匯出</button>
+                    <button onclick="triggerImport()" class="bg-white/10 px-2 py-1 rounded-lg text-[10px] font-bold border border-white/20 hover:bg-white/20">匯入</button>
+                    <input type="file" id="importInput" class="hidden" accept=".xlsx, .xls" onchange="importFromExcel(event)">
+                </div>
             </div>
         </div>
     </header>
 
     <main class="container mx-auto max-w-2xl">
-        <!-- 搜尋列 -->
-        <div class="px-4 py-4 sticky top-16 z-40 bg-slate-50/90 backdrop-blur-md border-b border-gray-100">
-            <div class="flex items-center gap-2 bg-white p-2 rounded-2xl shadow-lg">
+        <!-- 搜尋與新增列 - 修正固定定位問題 -->
+        <div class="px-4 py-4 sticky-search bg-slate-50/95 backdrop-blur-md border-b border-gray-100">
+            <div class="flex items-center gap-2 bg-white p-2 rounded-2xl shadow-xl border border-teal-50">
                 <div class="pl-3 text-gray-400"><i id="searchIcon" class="fas fa-search"></i></div>
-                <input type="text" id="smartInput" oninput="handleSmartInput()" placeholder="搜尋產品或輸入新名稱..." 
+                <input type="text" id="smartInput" oninput="handleSmartInput()" placeholder="搜尋或輸入新項目..." 
                     class="flex-1 p-2.5 bg-transparent border-none focus:ring-0 text-gray-700 font-bold outline-none text-base">
-                <button id="actionBtn" onclick="handleAction()" class="p-2.5 px-6 rounded-xl font-bold btn-bounce transition-all text-sm bg-gray-100 text-gray-400">
+                <button id="actionBtn" onclick="handleAction()" class="p-2.5 px-5 rounded-xl font-black btn-bounce transition-all text-sm bg-gray-100 text-gray-400">
                     <span id="btnText">搜尋</span>
                 </button>
             </div>
         </div>
 
+        <!-- 產品列表 -->
         <div id="productList" class="px-4 space-y-6 mt-4"></div>
 
-        <div id="emptyState" class="hidden text-center py-20 px-4">
-            <i class="fas fa-box-open text-gray-200 text-6xl mb-4 block"></i>
+        <div id="emptyState" class="hidden text-center py-24 px-4">
+            <div class="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <i class="fas fa-box-open text-gray-300 text-4xl"></i>
+            </div>
             <p class="text-gray-500 font-bold text-lg">暫無資料，請在上方新增產品</p>
+            <p class="text-gray-400 text-sm mt-1">您可以嘗試匯入先前的備份檔案</p>
         </div>
 
-        <div class="mt-12 mb-6 text-center">
+        <div class="mt-16 mb-8 text-center">
             <div class="inline-block px-4 py-1.5 bg-gray-200 text-gray-500 text-[10px] font-bold rounded-full tracking-widest uppercase">
-                Version 1.6 - 新增「兩」單位換算
+                Version 1.7 - 修復固定佈局與匯入功能
             </div>
         </div>
     </main>
 
-    <!-- 購物計算機 -->
+    <!-- 購物計算機 (內容保持不變，維持 V1.6 邏輯) -->
     <div id="calcDrawer" class="fixed inset-x-0 bottom-0 z-[60] bg-white rounded-t-[2.5rem] shadow-[0_-10px_40px_rgba(0,0,0,0.2)] drawer-hidden h-[92vh] flex flex-col">
         <div class="w-full flex justify-center pt-4 pb-2 cursor-pointer" onclick="toggleCalc()">
             <div class="w-16 h-2 bg-gray-200 rounded-full"></div>
@@ -90,7 +111,6 @@
         </div>
 
         <div class="flex-1 overflow-y-auto p-6 no-scrollbar">
-            <!-- 輸入區域 -->
             <div class="bg-orange-50 rounded-3xl p-5 mb-6 space-y-4">
                 <div class="grid grid-cols-12 gap-3">
                     <div class="col-span-12">
@@ -111,7 +131,6 @@
                 </button>
             </div>
 
-            <!-- 滿額目標 -->
             <div class="mb-8 px-2">
                 <div class="flex justify-between items-end mb-3">
                     <div class="flex flex-col">
@@ -134,7 +153,6 @@
             <div id="calcList" class="space-y-4 mb-8"></div>
         </div>
 
-        <!-- 總計欄位 -->
         <div class="p-6 bg-gray-50 border-t border-gray-100 pb-12">
             <div class="flex items-center justify-between mb-5">
                 <span class="text-sm font-bold text-gray-500">折扣方案:</span>
@@ -167,22 +185,20 @@
     </div>
 
     <script>
-        const APP_VERSION = "V1.6";
-        let products = JSON.parse(localStorage.getItem('priceTracker_v1_6') || '[]');
+        const STORAGE_KEY = 'priceTracker_v1_6'; // 沿用 key 保持資料相容
+        let products = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
         let cartItems = [];
 
-        // 定義單位選項，新增「兩」
         const UNIT_OPTIONS = [
             {v: 'pc', n: '個'}, {v: 'pack', n: '包'}, {v: 'box', n: '盒'},
             {v: 'g', n: '克 (g)'}, {v: 'kg', n: '公斤 (kg)'}, 
-            {v: 'tael', n: '兩 (37.8g)'}, // 新增單位
+            {v: 'tael', n: '兩 (37.8g)'}, 
             {v: 'catty', n: '斤 (600g)'}, {v: 'lb', n: '磅 (lb)'},
             {v: 'ml', n: '毫升 (ml)'}, {v: 'L', n: '公升 (L)'}
         ];
 
-        function save() { localStorage.setItem('priceTracker_v1_6', JSON.stringify(products)); }
+        function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(products)); }
 
-        // 標準化計算邏輯：加入 1 兩 = 37.8g
         function calculateStandard(price, qty, unit) {
             let stdPrice = 0, stdUnit = 'pc';
             const p = parseFloat(price) || 0;
@@ -193,8 +209,7 @@
                 if (unit === 'kg') totalGrams = q * 1000;
                 else if (unit === 'catty') totalGrams = q * 600;
                 else if (unit === 'lb') totalGrams = q * 453.59;
-                else if (unit === 'tael') totalGrams = q * 37.8; // 兩的換算
-                
+                else if (unit === 'tael') totalGrams = q * 37.8;
                 stdPrice = p / totalGrams; 
                 stdUnit = 'g';
             } else if (['ml', 'L'].includes(unit)) {
@@ -208,7 +223,6 @@
             return { stdPrice, stdUnit };
         }
 
-        // --- 以下為 UI 邏輯 ---
         function toggleCalc() {
             const drawer = document.getElementById('calcDrawer');
             drawer.classList.toggle('drawer-hidden');
@@ -280,14 +294,14 @@
             const count = renderApp();
             if (val.length > 0) {
                 if (count === 0) {
-                    actionBtn.className = "p-2.5 px-6 rounded-xl font-bold bg-teal-600 text-white";
+                    actionBtn.className = "p-2.5 px-6 rounded-xl font-black bg-teal-600 text-white";
                     btnText.innerText = "新增項目";
                 } else {
-                    actionBtn.className = "p-2.5 px-6 rounded-xl font-bold bg-teal-100 text-teal-600";
+                    actionBtn.className = "p-2.5 px-6 rounded-xl font-black bg-teal-100 text-teal-600 shadow-sm";
                     btnText.innerText = "搜尋中";
                 }
             } else {
-                actionBtn.className = "p-2.5 px-6 rounded-xl font-bold bg-gray-100 text-gray-400";
+                actionBtn.className = "p-2.5 px-6 rounded-xl font-black bg-gray-100 text-gray-400";
                 btnText.innerText = "搜尋";
             }
         }
@@ -329,10 +343,10 @@
                 const sorted = [...p.prices].sort((a, b) => a.standardPrice - b.standardPrice);
                 const lowest = sorted.length ? sorted[0].standardPrice : 0;
                 return `
-                <div class="bg-white rounded-[2rem] card-shadow overflow-hidden mb-6">
+                <div class="bg-white rounded-[2rem] card-shadow overflow-hidden mb-6 border border-gray-100">
                     <div class="px-6 py-5 flex justify-between items-center bg-gray-50/50">
                         <span class="text-xl font-black text-gray-800">${p.name}</span>
-                        <button onclick="deleteProduct(${p.id})" class="text-gray-300"><i class="fas fa-trash-alt"></i></button>
+                        <button onclick="deleteProduct(${p.id})" class="text-gray-300 p-2"><i class="fas fa-trash-alt"></i></button>
                     </div>
                     <div class="max-h-80 overflow-y-auto no-scrollbar">
                         <table class="w-full text-sm">
@@ -357,16 +371,16 @@
                         </table>
                     </div>
                     <div class="p-6 border-t-4 border-gray-50">
-                        <div class="grid grid-cols-4 gap-3 mb-3">
-                            <input type="text" id="new-loc-${p.id}" placeholder="地點" class="p-3 rounded-xl bg-gray-100 text-sm font-bold outline-none">
-                            <input type="number" id="new-price-${p.id}" placeholder="價格" class="p-3 rounded-xl bg-gray-100 text-sm font-black outline-none">
-                            <input type="number" id="new-qty-${p.id}" placeholder="數量" class="p-3 rounded-xl bg-gray-100 text-sm font-black outline-none">
-                            <select id="new-unit-${p.id}" class="p-3 rounded-xl bg-gray-100 text-sm font-bold outline-none">
+                        <div class="grid grid-cols-4 gap-2 mb-3">
+                            <input type="text" id="new-loc-${p.id}" placeholder="地點" class="p-3 rounded-xl bg-gray-100 text-sm font-bold outline-none border border-transparent focus:border-teal-200 focus:bg-white transition-all">
+                            <input type="number" id="new-price-${p.id}" placeholder="價格" class="p-3 rounded-xl bg-gray-100 text-sm font-black outline-none border border-transparent focus:border-teal-200 focus:bg-white transition-all">
+                            <input type="number" id="new-qty-${p.id}" placeholder="數量" class="p-3 rounded-xl bg-gray-100 text-sm font-black outline-none border border-transparent focus:border-teal-200 focus:bg-white transition-all">
+                            <select id="new-unit-${p.id}" class="p-3 rounded-xl bg-gray-100 text-sm font-bold outline-none border border-transparent focus:border-teal-200 focus:bg-white transition-all">
                                 ${UNIT_OPTIONS.map(o => `<option value="${o.v}">${o.n}</option>`).join('')}
                             </select>
                         </div>
-                        <input type="text" id="new-note-${p.id}" placeholder="備註..." class="w-full p-3 text-sm font-bold rounded-xl bg-gray-100 outline-none mb-4">
-                        <button onclick="addCase(${p.id})" class="w-full bg-teal-600 text-white font-black py-4 rounded-2xl text-base shadow-lg">新增紀錄</button>
+                        <input type="text" id="new-note-${p.id}" placeholder="備註..." class="w-full p-3 text-sm font-bold rounded-xl bg-gray-100 outline-none mb-4 border border-transparent focus:border-teal-200 focus:bg-white transition-all">
+                        <button onclick="addCase(${p.id})" class="w-full bg-teal-600 text-white font-black py-4 rounded-2xl text-base shadow-lg btn-bounce">新增紀錄</button>
                     </div>
                 </div>`;
             }).join('');
@@ -402,17 +416,90 @@
         }
 
         function deleteProduct(id) {
-            if (confirm("確定刪除產品？")) { products = products.filter(p => p.id !== id); save(); renderApp(); }
+            if (confirm("確定刪除產品？所有紀錄也會一併刪除。")) { products = products.filter(p => p.id !== id); save(); renderApp(); }
         }
 
         function closeModal() { document.getElementById('editModal').classList.replace('flex', 'hidden'); }
 
+        // --- 匯入/匯出功能 ---
         function exportToExcel() {
-            const data = products.flatMap(p => p.prices.map(c => ({ "產品": p.name, "地點": c.location, "價格": c.price, "數量": c.rawQuantity, "單位": c.rawUnit, "標準價/g": c.standardPrice.toFixed(4) })));
+            if (products.length === 0) { alert("沒有資料可以匯出。"); return; }
+            const data = products.flatMap(p => p.prices.map(c => ({ 
+                "產品名稱": p.name, 
+                "購買地點": c.location, 
+                "單價": c.price, 
+                "原始數量": c.rawQuantity, 
+                "單位編碼": c.rawUnit, 
+                "單位": UNIT_OPTIONS.find(u => u.v === c.rawUnit)?.n || c.rawUnit,
+                "備註": c.note || "",
+                "日期": c.date 
+            })));
             const ws = XLSX.utils.json_to_sheet(data);
             const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "PriceData");
-            XLSX.writeFile(wb, "價格追蹤.xlsx");
+            XLSX.utils.book_append_sheet(wb, ws, "價格歷史");
+            XLSX.writeFile(wb, `價格追蹤備份_${new Date().toISOString().split('T')[0]}.xlsx`);
+        }
+
+        function triggerImport() {
+            document.getElementById('importInput').click();
+        }
+
+        function importFromExcel(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+                    if (jsonData.length === 0) { alert("匯入檔案為空！"); return; }
+
+                    // 重新構建 products 結構
+                    const newProducts = [];
+                    jsonData.forEach(item => {
+                        const name = item["產品名稱"] || item["產品"];
+                        if (!name) return;
+                        
+                        let p = newProducts.find(x => x.name === name);
+                        if (!p) {
+                            p = { id: Date.now() + Math.random(), name: name, prices: [] };
+                            newProducts.push(p);
+                        }
+
+                        const price = parseFloat(item["單價"] || item["價格"]);
+                        const qty = parseFloat(item["原始數量"] || item["數量"]) || 1;
+                        const unit = item["單位編碼"] || item["單位"] || 'pc';
+                        const { stdPrice, stdUnit } = calculateStandard(price, qty, unit);
+
+                        p.prices.push({
+                            id: Date.now() + Math.random(),
+                            location: item["購買地點"] || item["地點"] || '未知',
+                            price: price,
+                            rawQuantity: qty,
+                            rawUnit: unit,
+                            note: item["備註"] || "",
+                            standardPrice: stdPrice,
+                            standardUnitLabel: stdUnit,
+                            date: item["日期"] || new Date().toLocaleDateString()
+                        });
+                    });
+
+                    if (confirm(`成功解析 ${jsonData.length} 筆紀錄。是否覆蓋目前資料？`)) {
+                        products = newProducts;
+                        save();
+                        renderApp();
+                    }
+                } catch (err) {
+                    console.error(err);
+                    alert("匯入失敗，請確保使用本系統匯出的 Excel 檔案格式。");
+                }
+                event.target.value = ""; // 清空 input 讓同一個檔案可以重複選取
+            };
+            reader.readAsArrayBuffer(file);
         }
 
         window.onload = () => { renderApp(); renderCalc(); };
